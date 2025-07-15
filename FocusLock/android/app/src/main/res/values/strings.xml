@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FocusLock</string>
+    <string name="app_description">FocusLock - Ứng dụng chống nghiện điện thoại, giúp bạn tập trung vào công việc quan trọng</string>
+    <string name="accessibility_service_description">FocusLock cần quyền truy cập để chặn các ứng dụng mạng xã hội trong thời gian tập trung</string>
+    <string name="app_long_description">FocusLock là ứng dụng giúp bạn kiểm soát thời gian sử dụng điện thoại, đặc biệt là các ứng dụng mạng xã hội như TikTok, Facebook, YouTube để tập trung vào công việc và học tập.</string>
+</resources> 
