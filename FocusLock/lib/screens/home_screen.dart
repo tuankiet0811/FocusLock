@@ -12,6 +12,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/app_blocking_service.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
+import '../services/auth_service.dart';
+import 'login_screen.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -342,6 +345,47 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         icon: const Icon(Icons.settings, color: Colors.white),
                         onPressed: () {
                           // TODO: Navigate to settings
+                        },
+                      ),
+                      Consumer<AuthService>(
+                        builder: (context, authService, _) {
+                          final isLoggedIn = authService.currentUser != null;
+                          return Row(
+                            children: [
+                              if (isLoggedIn)
+                                IconButton(
+                                  icon: const Icon(Icons.account_circle, color: Colors.white),
+                                  tooltip: 'Thông tin tài khoản',
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                                    );
+                                  },
+                                ),
+                              isLoggedIn
+                                  ? IconButton(
+                                      icon: const Icon(Icons.logout, color: Colors.white),
+                                      tooltip: 'Đăng xuất',
+                                      onPressed: () async {
+                                        await authService.signOut();
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Đã đăng xuất thành công!')),
+                                          );
+                                        }
+                                      },
+                                    )
+                                  : IconButton(
+                                      icon: const Icon(Icons.login, color: Colors.white),
+                                      tooltip: 'Đăng nhập',
+                                      onPressed: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(builder: (_) => const LoginScreen()),
+                                        );
+                                      },
+                                    ),
+                            ],
+                          );
                         },
                       ),
                     ],
