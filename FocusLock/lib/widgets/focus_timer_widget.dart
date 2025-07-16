@@ -6,14 +6,16 @@ class FocusTimerWidget extends StatefulWidget {
   final int remainingSeconds;
   final double completionPercentage;
   final VoidCallback onStop;
-  final VoidCallback onPause;
+  final VoidCallback onPauseOrResume;
+  final bool isPaused;
 
   const FocusTimerWidget({
     super.key,
     required this.remainingSeconds,
     required this.completionPercentage,
     required this.onStop,
-    required this.onPause,
+    required this.onPauseOrResume,
+    required this.isPaused,
   });
 
   @override
@@ -185,14 +187,14 @@ class _FocusTimerWidgetState extends State<FocusTimerWidget>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // Pause button
+              // Pause/Resume button
               Expanded(
                 child: Container(
                   margin: const EdgeInsets.only(right: 8),
                   child: ElevatedButton.icon(
-                    onPressed: widget.onPause,
-                    icon: const Icon(Icons.pause),
-                    label: const Text('Tạm dừng'),
+                    onPressed: widget.onPauseOrResume,
+                    icon: widget.isPaused ? const Icon(Icons.play_arrow) : const Icon(Icons.pause),
+                    label: Text(widget.isPaused ? 'Tiếp tục' : 'Tạm dừng'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white.withOpacity(0.2),
                       foregroundColor: Colors.white,

@@ -6,6 +6,9 @@ class FocusSession {
   final bool isActive;
   final List<String> blockedApps;
   final String? goal;
+  final DateTime? pausedTime;
+  final int durationSeconds;
+  final int? remainingSeconds;
 
   FocusSession({
     required this.id,
@@ -15,6 +18,9 @@ class FocusSession {
     required this.isActive,
     required this.blockedApps,
     this.goal,
+    this.pausedTime,
+    this.remainingSeconds,
+    required this.durationSeconds,
   });
 
   Map<String, dynamic> toJson() {
@@ -26,6 +32,9 @@ class FocusSession {
       'isActive': isActive,
       'blockedApps': blockedApps,
       'goal': goal,
+      'pausedTime': pausedTime?.toIso8601String(),
+      'remainingSeconds': remainingSeconds,
+      'durationSeconds': durationSeconds,
     };
   }
 
@@ -38,6 +47,9 @@ class FocusSession {
       isActive: json['isActive'],
       blockedApps: List<String>.from(json['blockedApps']),
       goal: json['goal'],
+      pausedTime: json['pausedTime'] != null ? DateTime.parse(json['pausedTime']) : null,
+      remainingSeconds: json['remainingSeconds'],
+      durationSeconds: json['durationSeconds'] ?? (json['durationMinutes'] * 60),
     );
   }
 
@@ -49,6 +61,9 @@ class FocusSession {
     bool? isActive,
     List<String>? blockedApps,
     String? goal,
+    DateTime? pausedTime,
+    int? remainingSeconds,
+    int? durationSeconds,
   }) {
     return FocusSession(
       id: id ?? this.id,
@@ -58,6 +73,9 @@ class FocusSession {
       isActive: isActive ?? this.isActive,
       blockedApps: blockedApps ?? this.blockedApps,
       goal: goal ?? this.goal,
+      pausedTime: pausedTime ?? this.pausedTime,
+      remainingSeconds: remainingSeconds ?? this.remainingSeconds,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
     );
   }
 } 

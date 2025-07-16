@@ -64,28 +64,27 @@ class FocusService extends ChangeNotifier {
   }
 
   // Start a new focus session
-  Future<void> startSession({
-    required int durationMinutes,
-    String? goal,
-  }) async {
+  Future<void> startSession({required int durationMinutes, String? goal}) async {
     if (_isActive) {
       await stopSession();
     }
 
     final now = DateTime.now();
-    final endTime = now.add(Duration(minutes: durationMinutes));
-    
+    final durationSeconds = durationMinutes * 60;
     _currentSession = FocusSession(
       id: Helpers.generateId(),
       startTime: now,
-      endTime: endTime,
+      endTime: now.add(Duration(seconds: durationSeconds)),
       durationMinutes: durationMinutes,
+      durationSeconds: durationSeconds,
+      remainingSeconds: durationSeconds,
       isActive: true,
       blockedApps: _blockedApps.where((app) => app.isBlocked).map((app) => app.packageName).toList(),
       goal: goal,
+      pausedTime: null,
     );
 
-    _remainingSeconds = durationMinutes * 60;
+    _remainingSeconds = durationSeconds;
     _isActive = true;
 
     // Save session
@@ -118,6 +117,8 @@ class FocusService extends ChangeNotifier {
     _currentSession = _currentSession!.copyWith(
       isActive: false,
       endTime: DateTime.now(),
+      pausedTime: null,
+      remainingSeconds: null,
     );
 
     // Update in storage
@@ -150,22 +151,30 @@ class FocusService extends ChangeNotifier {
 
   // Pause session
   Future<void> pauseSession() async {
-    if (!_isActive) return;
-    
+    if (_currentSession == null) return;
     _timer?.cancel();
     _timer = null;
     _isActive = false;
-    
+    _currentSession = _currentSession!.copyWith(
+      pausedTime: DateTime.now(),
+      remainingSeconds: _remainingSeconds,
+    );
+    await _storageService.updateFocusSession(_currentSession!);
     notifyListeners();
   }
 
   // Resume session
   Future<void> resumeSession() async {
-    if (_currentSession == null || _isActive) return;
-    
+    if (_currentSession == null) return;
     _isActive = true;
+    _remainingSeconds = _currentSession!.remainingSeconds ?? _remainingSeconds;
+    // XÓA pausedTime và remainingSeconds
+    _currentSession = _currentSession!.copyWith(
+      pausedTime: null,
+      remainingSeconds: null,
+    );
+    await _storageService.updateFocusSession(_currentSession!);
     _startTimer();
-    
     notifyListeners();
   }
 
@@ -175,31 +184,35 @@ class FocusService extends ChangeNotifier {
     _isActive = session.isActive;
     
     if (_isActive) {
-      final now = DateTime.now();
-      final endTime = session.endTime;
-      
-      if (now.isBefore(endTime)) {
-        _remainingSeconds = endTime.difference(now).inSeconds;
-        _startTimer();
+      if (session.pausedTime != null && session.remainingSeconds != null) {
+        // Đang pause, khôi phục đúng trạng thái
+        _remainingSeconds = session.remainingSeconds!;
+        // Không chạy timer, chỉ notify để UI hiển thị đúng
+        notifyListeners();
       } else {
-        // Session has expired
-        await stopSession(completed: true);
+        final now = DateTime.now();
+        final endTime = session.endTime;
+      
+        if (now.isBefore(endTime)) {
+          _remainingSeconds = endTime.difference(now).inSeconds;
+          _startTimer();
+        } else {
+          // Session has expired
+          await stopSession(completed: true);
+        }
       }
     }
   }
 
   // Start timer
   void _startTimer() {
+    _timer?.cancel(); // Đảm bảo không có timer cũ chạy song song
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds > 0) {
         _remainingSeconds--;
         
         // Show motivational notification at certain intervals
-        final percentage = Helpers.getCompletionPercentage(
-          _currentSession!.startTime,
-          _currentSession!.endTime,
-          DateTime.now(),
-        );
+        final percentage = getCompletionPercentage();
         
         if (_remainingSeconds % 300 == 0 && _remainingSeconds > 0) { // Every 5 minutes
           _notificationService.showMotivationalNotification(
@@ -302,12 +315,8 @@ class FocusService extends ChangeNotifier {
   // Get completion percentage
   double getCompletionPercentage() {
     if (_currentSession == null) return 0.0;
-    
-    return Helpers.getCompletionPercentage(
-      _currentSession!.startTime,
-      _currentSession!.endTime,
-      DateTime.now(),
-    );
+    final total = _currentSession!.durationSeconds;
+    return 1 - (_remainingSeconds / total);
   }
 
   // Dispose

@@ -418,18 +418,29 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         ),
                         
                         // Focus Timer Widget
-                        if (focusService.isActive) ...[
+                        if (focusService.currentSession != null &&
+                            (focusService.isActive || focusService.currentSession?.pausedTime != null)) ...[
                           FocusTimerWidget(
+                            key: ValueKey('${focusService.currentSession?.id}_${focusService.currentSession?.pausedTime}'),
                             remainingSeconds: focusService.remainingSeconds,
-                            completionPercentage: focusService.getCompletionPercentage(),
+                            completionPercentage: focusService.getCompletionPercentage() * 100,
                             onStop: () => focusService.stopSession(),
-                            onPause: () => focusService.pauseSession(),
+                            onPauseOrResume: () async {
+                              if (focusService.currentSession?.pausedTime != null) {
+                                await focusService.resumeSession();
+                              } else {
+                                await focusService.pauseSession();
+                              }
+                              setState(() {});
+                            },
+                            isPaused: focusService.currentSession?.pausedTime != null,
                           ),
                           const SizedBox(height: 24),
                         ],
-                        
+
+
                         // Quick Start Widget
-                        if (!focusService.isActive) ...[
+                        if (!focusService.isActive && focusService.currentSession?.pausedTime == null) ...[
                           QuickStartWidget(
                             onStartSession: (duration, goal) {
                               focusService.startSession(
