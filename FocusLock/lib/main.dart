@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'services/focus_service.dart';
 import 'screens/home_screen.dart';
 import 'utils/constants.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -10,7 +11,7 @@ void main() async {
   // Initialize FocusService
   final focusService = FocusService();
   await focusService.init();
-  
+  await Firebase.initializeApp();
   runApp(MyApp(focusService: focusService));
 }
 
