@@ -34,6 +34,7 @@ class AppBlockingPlugin: FlutterPlugin, MethodCallHandler {
   }
 
   override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
+    println("AppBlockingPlugin: onMethodCall: ${call.method}")
     when (call.method) {
       "init" -> {
         result.success(null)
@@ -236,22 +237,34 @@ class AppBlockingPlugin: FlutterPlugin, MethodCallHandler {
   }
 
   private fun getInstalledApps(): List<Map<String, Any>> {
+    println("AppBlockingPlugin: Đã gọi getInstalledApps")
     val apps = mutableListOf<Map<String, Any>>()
-    
+    val popularSystemApps = setOf(
+        "com.google.android.youtube",
+        "com.facebook.katana",
+        "com.facebook.orca",
+        "com.instagram.android",
+        "com.whatsapp",
+        "com.zing.zalo",
+        "com.google.android.apps.messaging"
+        // Thêm các package phổ biến khác nếu muốn
+    )
     try {
       val installedApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-      
       for (appInfo in installedApps) {
-        // Filter out system apps and our own app
-        if (appInfo.flags and ApplicationInfo.FLAG_SYSTEM == 0 && 
-            appInfo.packageName != context.packageName) {
-          
+        // Lấy app user hoặc app hệ thống phổ biến, loại trừ app chính FocusLock
+        if (
+          (appInfo.packageName != context.packageName) &&
+          (
+            (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 ||
+            popularSystemApps.contains(appInfo.packageName)
+          )
+        ) {
           val appName = try {
             packageManager.getApplicationLabel(appInfo).toString()
           } catch (e: Exception) {
             appInfo.packageName
           }
-          
           apps.add(mapOf(
             "packageName" to appInfo.packageName,
             "appName" to appName,
@@ -259,10 +272,11 @@ class AppBlockingPlugin: FlutterPlugin, MethodCallHandler {
           ))
         }
       }
+      println("AppBlockingPlugin: Số lượng app lấy được (user + system phổ biến): ${apps.size}")
     } catch (e: Exception) {
-      // Handle permission denied or other errors
+      println("AppBlockingPlugin: Lỗi khi lấy danh sách app: ${e.message}")
+      e.printStackTrace()
     }
-    
     return apps
   }
 

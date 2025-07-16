@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/focus_service.dart';
 import '../services/app_usage_service.dart';
 import '../services/social_media_service.dart';
+import '../services/app_blocking_service.dart';
 import '../models/app_info.dart';
 import '../utils/constants.dart';
 
@@ -17,8 +18,7 @@ class _AppsScreenState extends State<AppsScreen> {
   List<AppInfo> _allApps = [];
   List<AppInfo> _filteredApps = [];
   bool _isLoading = true;
-  final AppUsageService _appUsageService = AppUsageService();
-  final SocialMediaService _socialMediaService = SocialMediaService();
+  final AppBlockingService _appBlockingService = AppBlockingService();
   String _selectedCategory = 'all';
 
   @override
@@ -33,26 +33,15 @@ class _AppsScreenState extends State<AppsScreen> {
     });
 
     try {
-      // Get all available apps from service
-      _allApps = await _appUsageService.getAllApps();
-      
-      // Add social media apps if not already present
-      final socialMediaApps = _socialMediaService.getSocialMediaApps();
-      for (final socialApp in socialMediaApps) {
-        final existingIndex = _allApps.indexWhere((app) => app.packageName == socialApp.packageName);
-        if (existingIndex == -1) {
-          _allApps.add(socialApp);
-        }
-      }
-      
+      // Lấy danh sách app thực tế đã cài trên máy
+      _allApps = await _appBlockingService.getInstalledApps();
       _filteredApps = List.from(_allApps);
     } catch (e) {
-      print('Error loading apps: $e');
-      // Fallback to social media apps only
-      _allApps = _socialMediaService.getPopularSocialMediaApps();
-      _filteredApps = List.from(_allApps);
+      print('Error loading installed apps: $e');
+      _allApps = [];
+      _filteredApps = [];
     }
-    
+
     setState(() {
       _isLoading = false;
     });
@@ -99,26 +88,57 @@ class _AppsScreenState extends State<AppsScreen> {
   void _filterAppsByCategory(String category) {
     switch (category) {
       case 'social':
+        // This part needs to be updated to use AppBlockingService or a new service
+        // For now, it will just filter by package name if AppBlockingService is not ready
         _filteredApps = _allApps.where((app) => 
-          _socialMediaService.isSocialMediaApp(app.packageName)
+          app.packageName.startsWith('com.facebook') ||
+          app.packageName.startsWith('com.instagram') ||
+          app.packageName.startsWith('com.twitter') ||
+          app.packageName.startsWith('com.threads') ||
+          app.packageName.startsWith('com.snapchat') ||
+          app.packageName.startsWith('com.whatsapp') ||
+          app.packageName.startsWith('com.telegram') ||
+          app.packageName.startsWith('com.discord') ||
+          app.packageName.startsWith('com.reddit') ||
+          app.packageName.startsWith('com.pinterest') ||
+          app.packageName.startsWith('com.linkedin') ||
+          app.packageName.startsWith('com.spotify') ||
+          app.packageName.startsWith('com.netflix') ||
+          app.packageName.startsWith('com.google.android.youtube')
         ).toList();
         break;
       case 'messaging':
-        final messagingApps = _socialMediaService.getMessagingApps();
+        // This part needs to be updated to use AppBlockingService or a new service
         _filteredApps = _allApps.where((app) => 
-          messagingApps.any((msgApp) => msgApp.packageName == app.packageName)
+          app.packageName.startsWith('com.whatsapp') ||
+          app.packageName.startsWith('com.telegram') ||
+          app.packageName.startsWith('com.discord')
         ).toList();
         break;
       case 'video':
-        final videoApps = _socialMediaService.getVideoEntertainmentApps();
+        // This part needs to be updated to use AppBlockingService or a new service
         _filteredApps = _allApps.where((app) => 
-          videoApps.any((videoApp) => videoApp.packageName == app.packageName)
+          app.packageName.startsWith('com.netflix') ||
+          app.packageName.startsWith('com.google.android.youtube')
         ).toList();
         break;
       case 'popular':
-        final popularApps = _socialMediaService.getPopularSocialMediaApps();
+        // This part needs to be updated to use AppBlockingService or a new service
         _filteredApps = _allApps.where((app) => 
-          popularApps.any((popApp) => popApp.packageName == app.packageName)
+          app.packageName.startsWith('com.facebook') ||
+          app.packageName.startsWith('com.instagram') ||
+          app.packageName.startsWith('com.twitter') ||
+          app.packageName.startsWith('com.threads') ||
+          app.packageName.startsWith('com.snapchat') ||
+          app.packageName.startsWith('com.whatsapp') ||
+          app.packageName.startsWith('com.telegram') ||
+          app.packageName.startsWith('com.discord') ||
+          app.packageName.startsWith('com.reddit') ||
+          app.packageName.startsWith('com.pinterest') ||
+          app.packageName.startsWith('com.linkedin') ||
+          app.packageName.startsWith('com.spotify') ||
+          app.packageName.startsWith('com.netflix') ||
+          app.packageName.startsWith('com.google.android.youtube')
         ).toList();
         break;
       default:

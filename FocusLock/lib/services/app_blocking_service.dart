@@ -145,17 +145,20 @@ class AppBlockingService {
 
   // Get list of installed apps
   Future<List<AppInfo>> getInstalledApps() async {
-    try {
-      final result = await _channel.invokeMethod('getInstalledApps');
-      if (result is List) {
-        return result.map((app) => AppInfo.fromJson(app)).toList();
-      }
-      return [];
-    } catch (e) {
-      print('Failed to get installed apps: $e');
-      return [];
+  try {
+    final result = await _channel.invokeMethod('getInstalledApps');
+    if (result is List) {
+      // Sửa đoạn này:
+      return result
+          .map((app) => AppInfo.fromJson(Map<String, dynamic>.from(app)))
+          .toList();
     }
+    return [];
+  } catch (e) {
+    print('Failed to get installed apps: $e');
+    return [];
   }
+}
 
   // Get current app (for debug purposes)
   Future<String?> getCurrentApp() async {
