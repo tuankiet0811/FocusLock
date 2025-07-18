@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  final VoidCallback? onRestart;
+  const LoginScreen({Key? key, this.onRestart}) : super(key: key);
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -37,7 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
           _passwordController.text.trim(),
         );
         if (mounted) {
-          Navigator.of(context).pop(); // Quay lại màn hình trước hoặc chuyển sang home
+          widget.onRestart?.call();
         }
       } catch (e) {
         setState(() {
@@ -57,7 +59,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _goToForgotPassword() {
-    // Sẽ triển khai sau
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+    );
   }
 
   @override

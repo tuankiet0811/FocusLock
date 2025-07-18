@@ -14,15 +14,43 @@ void main() async {
   final focusService = FocusService();
   await focusService.init();
   await Firebase.initializeApp();
-  runApp(MyApp(focusService: focusService));
+  runApp(AppRoot(focusService: focusService));
+}
+
+class AppRoot extends StatefulWidget {
+  final FocusService focusService;
+  const AppRoot({Key? key, required this.focusService}) : super(key: key);
+  @override
+  State<AppRoot> createState() => _AppRootState();
+}
+
+class _AppRootState extends State<AppRoot> {
+  Key _appKey = UniqueKey();
+
+  void _restartApp() {
+    setState(() {
+      _appKey = UniqueKey();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MyApp(
+      key: _appKey,
+      focusService: widget.focusService,
+      onRestart: _restartApp,
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {
   final FocusService focusService;
+  final VoidCallback? onRestart;
   
   const MyApp({
     super.key,
     required this.focusService,
+    this.onRestart,
   });
 
   @override
@@ -83,14 +111,15 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
-        home: const AuthGate(),
+        home: AuthGate(onRestart: onRestart),
       ),
     );
   }
 }
 
 class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
+  final VoidCallback? onRestart;
+  const AuthGate({super.key, this.onRestart});
 
   @override
   Widget build(BuildContext context) {
@@ -103,10 +132,17 @@ class AuthGate extends StatelessWidget {
             body: Center(child: CircularProgressIndicator()),
           );
         }
+        if (snapshot.hasError) {
+          return const Scaffold(
+            body: Center(child: Text('Có lỗi xảy ra khi xác thực!')), // fallback UI
+          );
+        }
         if (snapshot.hasData) {
-          return const HomeScreen();
+          print('AuthGate: Đã đăng nhập user: \\${snapshot.data}');
+          return HomeScreen(onRestart: onRestart);
         } else {
-          return const LoginScreen();
+          print('AuthGate: Chưa đăng nhập');
+          return LoginScreen(onRestart: onRestart);
         }
       },
     );

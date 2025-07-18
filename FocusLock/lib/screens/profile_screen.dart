@@ -4,7 +4,8 @@ import '../services/auth_service.dart';
 import 'package:flutter/services.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  final VoidCallback? onRestart;
+  const ProfileScreen({Key? key, this.onRestart}) : super(key: key);
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -40,7 +41,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final authService = Provider.of<AuthService>(context, listen: false);
     await authService.signOut();
     if (mounted) {
-      Navigator.of(context).pop();
+      widget.onRestart?.call(); // Gọi trước khi pop để tránh lỗi navigation
+      Navigator.of(context).pop(); // Pop sau
     }
   }
 

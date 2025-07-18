@@ -17,7 +17,8 @@ import 'login_screen.dart';
 import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final VoidCallback? onRestart;
+  const HomeScreen({super.key, this.onRestart});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -308,6 +309,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _buildHomeContent() {
     return Consumer<FocusService>(
       builder: (context, focusService, child) {
+        if (focusService.sessions == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
         return SafeArea(
           child: FadeTransition(
             opacity: _fadeAnimation,
