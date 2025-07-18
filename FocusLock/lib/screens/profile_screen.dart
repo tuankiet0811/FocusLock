@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import 'package:flutter/services.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -12,6 +13,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = false;
   String? _message;
+  static const platform = MethodChannel('focuslock/app_blocking');
 
   Future<void> _changePassword(String email) async {
     setState(() {
@@ -39,6 +41,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await authService.signOut();
     if (mounted) {
       Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _requestOverlayPermission() async {
+    try {
+      final bool result = await platform.invokeMethod('requestPermissions');
+      if (result) {
+        setState(() {
+          _message = 'Đã mở trang cấp quyền hiển thị trên ứng dụng khác.';
+        });
+      } else {
+        setState(() {
+          _message = 'Không thể mở trang cấp quyền. Vui lòng kiểm tra cài đặt.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _message = 'Lỗi khi xin quyền overlay: \n${e.toString()}';
+      });
     }
   }
 

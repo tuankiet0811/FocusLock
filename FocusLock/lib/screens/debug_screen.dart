@@ -5,6 +5,7 @@ import '../services/app_blocking_service.dart';
 import '../utils/constants.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
+import 'package:flutter/services.dart';
 
 class DebugScreen extends StatefulWidget {
   const DebugScreen({super.key});
@@ -18,6 +19,8 @@ class _DebugScreenState extends State<DebugScreen> {
   String _currentApp = 'Unknown';
   bool _isBlockingActive = false;
   List<String> _blockedApps = [];
+  static const platform = MethodChannel('focuslock/app_blocking');
+  String? _overlayMessage;
 
   @override
   void initState() {
@@ -44,6 +47,32 @@ class _DebugScreenState extends State<DebugScreen> {
       });
     } catch (e) {
       print('Error getting current app: $e');
+    }
+  }
+
+  Future<void> _requestOverlayPermission() async {
+    try {
+      final bool result = await platform.invokeMethod('requestPermissions');
+      setState(() {
+        _overlayMessage = result
+            ? 'Đã mở trang cấp quyền hiển thị trên ứng dụng khác.'
+            : 'Không thể mở trang cấp quyền. Vui lòng kiểm tra cài đặt.';
+      });
+    } catch (e) {
+      setState(() {
+        _overlayMessage = 'Lỗi khi xin quyền overlay: \n${e.toString()}';
+      });
+    }
+  }
+
+  Future<void> _requestUsageAccessPermission() async {
+    const platform = MethodChannel('focuslock/app_blocking');
+    try {
+      await platform.invokeMethod('requestUsageAccessPermission');
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi khi xin quyền Usage Access: $e')),
+      );
     }
   }
 
@@ -127,6 +156,23 @@ class _DebugScreenState extends State<DebugScreen> {
                         onPressed: _loadDebugInfo,
                         child: const Text('Làm mới thông tin'),
                       ),
+                      const SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: _requestOverlayPermission,
+                        child: const Text('Cấp quyền hiển thị trên ứng dụng khác'),
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: _requestUsageAccessPermission,
+                        child: const Text('Cấp quyền truy cập sử dụng ứng dụng'),
+                      ),
+                      if (_overlayMessage != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          _overlayMessage!,
+                          style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w500),
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       ElevatedButton(
                         onPressed: () async {

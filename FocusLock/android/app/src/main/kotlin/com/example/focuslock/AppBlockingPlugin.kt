@@ -78,6 +78,16 @@ class AppBlockingPlugin: FlutterPlugin, MethodCallHandler {
         val debugInfo = debugCurrentApp()
         result.success(debugInfo)
       }
+      "requestUsageAccessPermission" -> {
+        try {
+          val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+          intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+          context.startActivity(intent)
+          result.success(true)
+        } catch (e: Exception) {
+          result.error("USAGE_ACCESS_ERROR", e.message, null)
+        }
+      }
       else -> {
         result.notImplemented()
       }

@@ -123,13 +123,14 @@ class FocusLockAccessibilityService : AccessibilityService() {
     
     private fun handleBlockedApp(packageName: String) {
         println("FocusLockAccessibilityService: Handling blocked app: $packageName")
-        
-        // Go back to home screen
-        performGlobalAction(GLOBAL_ACTION_HOME)
-        
-        // Show blocking dialog
-        showBlockingDialog(packageName)
-        
+        // XÓA lệnh performGlobalAction(GLOBAL_ACTION_HOME)
+        // Chỉ trigger overlay blocking service
+        try {
+            val overlayIntent = Intent(this, AppBlockingOverlayService::class.java)
+            startService(overlayIntent)
+        } catch (e: Exception) {
+            println("FocusLockAccessibilityService: Failed to start overlay service: ${e.message}")
+        }
         // Show toast message
         Toast.makeText(
             this,
