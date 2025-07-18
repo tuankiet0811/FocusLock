@@ -79,19 +79,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         actions: [
           TextButton(
             onPressed: () {
+              if (!mounted) return; // Thêm kiểm tra mounted
               Navigator.of(context).pop();
             },
             child: const Text('Để sau'),
           ),
           ElevatedButton(
             onPressed: () {
+              if (!mounted) return; // Thêm kiểm tra mounted
               _openAccessibilitySettings();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(AppConstants.primaryColor),
               foregroundColor: Colors.white,
             ),
-            child: const Text('♿ Bật Accessibility Service'),
+            child: const Text('⛿ Bật Accessibility Service'),
           ),
         ],
       ),
@@ -99,12 +101,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _openAccessibilitySettings() {
+    if (!mounted) return; // Thêm kiểm tra mounted
     final intent = AndroidIntent(
       action: 'android.settings.ACCESSIBILITY_SETTINGS',
       flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
     );
     intent.launch();
     
+    if (!mounted) return; // Kiểm tra lại trước khi show SnackBar
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Đã mở cài đặt Accessibility. Tìm FocusLock và bật dịch vụ'),
