@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/focus_session.dart';
 import '../models/app_info.dart';
+import '../models/session_history.dart';
 import '../utils/constants.dart';
 
 class StorageService {
@@ -42,6 +43,12 @@ class StorageService {
       sessions[index] = updatedSession;
       await saveFocusSessions(sessions);
     }
+  }
+
+  Future<void> removeFocusSession(String sessionId) async {
+    final sessions = await getFocusSessions();
+    sessions.removeWhere((session) => session.id == sessionId);
+    await saveFocusSessions(sessions);
   }
 
   // Blocked Apps
@@ -97,28 +104,45 @@ class StorageService {
     return Map<String, dynamic>.from(jsonDecode(settingsString));
   }
 
-  // Statistics
-  Future<void> saveStatistics(Map<String, dynamic> statistics) async {
-    await _prefs.setString(AppConstants.statisticsKey, jsonEncode(statistics));
+  // Session History
+  Future<void> saveSessionHistory(List<SessionHistory> history) async {
+    final historyJson = history.map((entry) => entry.toJson()).toList();
+    await _prefs.setString(AppConstants.sessionHistoryKey, jsonEncode(historyJson));
   }
 
-  Future<Map<String, dynamic>> getStatistics() async {
+  Future<List<SessionHistory>> getSessionHistory() async {
+    final historyString = _prefs.getString(AppConstants.sessionHistoryKey);
+    if (historyString == null) return [];
+
+    final historyJson = jsonDecode(historyString) as List;
+    return historyJson.map((json) => SessionHistory.fromJson(json)).toList();
+  }
+
+  Future<void> addSessionHistory(SessionHistory entry) async {
+    final history = await getSessionHistory();
+    history.add(entry);
+    await saveSessionHistory(history);
+  }
+
+  // Statistics
+  Future<void> saveStatistics(SessionStatistics statistics) async {
+    await _prefs.setString(AppConstants.statisticsKey, jsonEncode(statistics.toJson()));
+  }
+
+  Future<SessionStatistics?> getStatistics() async {
     final statisticsString = _prefs.getString(AppConstants.statisticsKey);
-    if (statisticsString == null) {
-      return {
-        'total_focus_time': 0,
-        'total_sessions': 0,
-        'completed_sessions': 0,
-        'current_streak': 0,
-        'longest_streak': 0,
-        'last_session_date': null,
-      };
+    if (statisticsString == null) return null;
+    
+    try {
+      final statisticsJson = jsonDecode(statisticsString);
+      return SessionStatistics.fromJson(statisticsJson);
+    } catch (e) {
+      return null;
     }
-    return Map<String, dynamic>.from(jsonDecode(statisticsString));
   }
 
   Future<void> updateStatistics({
-    int? totalFocusTime,
+    int? totalFocusMinutes,
     int? totalSessions,
     int? completedSessions,
     int? currentStreak,
@@ -126,15 +150,18 @@ class StorageService {
     DateTime? lastSessionDate,
   }) async {
     final statistics = await getStatistics();
+    if (statistics == null) return;
     
-    if (totalFocusTime != null) statistics['total_focus_time'] = totalFocusTime;
-    if (totalSessions != null) statistics['total_sessions'] = totalSessions;
-    if (completedSessions != null) statistics['completed_sessions'] = completedSessions;
-    if (currentStreak != null) statistics['current_streak'] = currentStreak;
-    if (longestStreak != null) statistics['longest_streak'] = longestStreak;
-    if (lastSessionDate != null) statistics['last_session_date'] = lastSessionDate.toIso8601String();
+    final updatedStatistics = statistics.copyWith(
+      totalFocusMinutes: totalFocusMinutes,
+      totalSessions: totalSessions,
+      completedSessions: completedSessions,
+      currentStreak: currentStreak,
+      longestStreak: longestStreak,
+      lastSessionDate: lastSessionDate,
+    );
     
-    await saveStatistics(statistics);
+    await saveStatistics(updatedStatistics);
   }
 
   // Clear all data

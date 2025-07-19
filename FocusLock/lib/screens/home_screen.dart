@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/focus_service.dart';
+import '../models/focus_session.dart';
 import '../utils/helpers.dart';
 import '../utils/constants.dart';
 import '../widgets/focus_timer_widget.dart';
 import '../widgets/quick_start_widget.dart';
-import '../widgets/stats_widget.dart';
 import 'apps_screen.dart';
 import 'debug_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,6 +15,8 @@ import 'package:android_intent_plus/flag.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
+import 'settings_screen.dart';
+import 'statistics_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onRestart;
@@ -29,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   int _currentIndex = 0;
+
 
   @override
   void initState() {
@@ -146,161 +149,34 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             label: 'Trang chủ',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'Lịch sử',
+            icon: Icon(Icons.analytics),
+            label: 'Thống kê',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.apps),
             label: 'Ứng dụng',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.bug_report),
-            label: 'Debug',
+            icon: Icon(Icons.person),
+            label: 'Hồ sơ',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRecentSessions(FocusService focusService) {
-    final recentSessions = focusService.sessions
-        .where((session) => !session.isActive)
-        .take(5)
-        .toList();
 
-    if (recentSessions.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Icon(
-              Icons.history,
-              size: 48,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Chưa có phiên tập trung nào',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Bắt đầu phiên tập trung đầu tiên của bạn!',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[500],
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.history,
-                  color: Color(AppConstants.primaryColor),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Phiên gần đây',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () {
-                    // TODO: Navigate to history screen
-                  },
-                  child: const Text('Xem tất cả'),
-                ),
-              ],
-            ),
-          ),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: recentSessions.length,
-            separatorBuilder: (context, index) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final session = recentSessions[index];
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: const Color(AppConstants.primaryColor).withOpacity(0.1),
-                  child: Icon(
-                    Icons.timer,
-                    color: const Color(AppConstants.primaryColor),
-                  ),
-                ),
-                title: Text(
-                  session.goal ?? 'Phiên tập trung',
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-                subtitle: Text(
-                  '${Helpers.formatDuration(session.durationMinutes)} • ${Helpers.formatDate(session.startTime)}',
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-                trailing: Text(
-                  Helpers.formatDuration(session.durationMinutes),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Color(AppConstants.primaryColor),
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildBody() {
     switch (_currentIndex) {
       case 0:
         return _buildHomeContent();
       case 1:
-        return _buildHistoryContent();
+        return const StatisticsScreen();
       case 2:
         return const AppsScreen();
       case 3:
-        return const DebugScreen();
+        return ProfileScreen(onRestart: widget.onRestart);
       default:
         return _buildHomeContent();
     }
@@ -349,49 +225,62 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ),
                     ),
                     actions: [
-                      IconButton(
-                        icon: const Icon(Icons.settings, color: Colors.white),
-                        onPressed: () {
-                          // TODO: Navigate to settings
-                        },
-                      ),
                       Consumer<AuthService>(
                         builder: (context, authService, _) {
                           final isLoggedIn = authService.currentUser != null;
                           return Row(
                             children: [
+                              IconButton(
+                                icon: const Icon(Icons.settings, color: Colors.white),
+                                tooltip: 'Cài đặt',
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(builder: (_) => SettingsScreen(onRestart: widget.onRestart)),
+                                  );
+                                },
+                              ),
                               if (isLoggedIn)
                                 IconButton(
-                                  icon: const Icon(Icons.account_circle, color: Colors.white),
-                                  tooltip: 'Thông tin tài khoản',
+                                  icon: const Icon(Icons.logout, color: Colors.white),
+                                  tooltip: 'Đăng xuất',
+                                  onPressed: () async {
+                                    try {
+                                      print('HomeScreen: Bắt đầu đăng xuất từ app bar...');
+                                      authService.debugAuthState(); // Debug trước khi đăng xuất
+                                      await authService.signOut();
+                                      print('HomeScreen: Đăng xuất thành công');
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Đã đăng xuất thành công!'),
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      print('HomeScreen: Lỗi khi đăng xuất: $e');
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Lỗi khi đăng xuất: ${e.toString()}'),
+                                            backgroundColor: Colors.red,
+                                            duration: const Duration(seconds: 5),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                )
+                              else
+                                IconButton(
+                                  icon: const Icon(Icons.login, color: Colors.white),
+                                  tooltip: 'Đăng nhập',
                                   onPressed: () {
                                     Navigator.of(context).push(
-                                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                                      MaterialPageRoute(builder: (_) => const LoginScreen()),
                                     );
                                   },
                                 ),
-                              isLoggedIn
-                                  ? IconButton(
-                                      icon: const Icon(Icons.logout, color: Colors.white),
-                                      tooltip: 'Đăng xuất',
-                                      onPressed: () async {
-                                        await authService.signOut();
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Đã đăng xuất thành công!')),
-                                          );
-                                        }
-                                      },
-                                    )
-                                  : IconButton(
-                                      icon: const Icon(Icons.login, color: Colors.white),
-                                      tooltip: 'Đăng nhập',
-                                      onPressed: () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(builder: (_) => const LoginScreen()),
-                                        );
-                                      },
-                                    ),
                             ],
                           );
                         },
@@ -471,31 +360,35 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         
                         // Focus Timer Widget
                         if (focusService.currentSession != null &&
-                            (focusService.isActive || focusService.currentSession?.pausedTime != null)) ...[
+                            focusService.currentSession?.status != SessionStatus.completed &&
+                            focusService.currentSession?.status != SessionStatus.cancelled) ...[
                           FocusTimerWidget(
                             key: ValueKey('${focusService.currentSession?.id}_${focusService.currentSession?.pausedTime}'),
                             remainingSeconds: focusService.remainingSeconds,
                             completionPercentage: focusService.getCompletionPercentage() * 100,
                             onStop: () => focusService.stopSession(),
                             onPauseOrResume: () async {
-                              if (focusService.currentSession?.pausedTime != null) {
+                              if (focusService.currentSession?.status == SessionStatus.paused) {
                                 await focusService.resumeSession();
                               } else {
                                 await focusService.pauseSession();
                               }
                               setState(() {});
                             },
-                            isPaused: focusService.currentSession?.pausedTime != null,
+                            isPaused: focusService.currentSession?.status == SessionStatus.paused,
+                            pausedTime: focusService.currentSession?.pausedTime,
                           ),
                           const SizedBox(height: 24),
                         ],
 
 
                         // Quick Start Widget
-                        if (!focusService.isActive && focusService.currentSession?.pausedTime == null) ...[
+                        if (focusService.currentSession == null ||
+                            (focusService.currentSession?.status == SessionStatus.completed ||
+                             focusService.currentSession?.status == SessionStatus.cancelled)) ...[
                           QuickStartWidget(
-                            onStartSession: (duration, goal) {
-                              focusService.startSession(
+                            onStartSession: (duration, goal) async {
+                              await focusService.startSession(
                                 durationMinutes: duration,
                                 goal: goal,
                               );
@@ -503,18 +396,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           ),
                           const SizedBox(height: 24),
                         ],
-                        
-                        // Statistics Widget
-                        StatsWidget(
-                          todayFocusTime: focusService.getTodayFocusTime(),
-                          thisWeekFocusTime: focusService.getThisWeekFocusTime(),
-                          totalSessions: focusService.sessions.length,
-                        ),
-                        
-                        const SizedBox(height: 24),
-                        
-                        // Recent Sessions
-                        _buildRecentSessions(focusService),
                         
                         const SizedBox(height: 100), // Bottom padding
                       ]),
@@ -529,15 +410,5 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildHistoryContent() {
-    return const Center(
-      child: Text('Lịch sử - Coming Soon'),
-    );
-  }
 
-  Widget _buildStatsContent() {
-    return const Center(
-      child: Text('Thống kê - Coming Soon'),
-    );
-  }
 } 

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 import '../models/app_info.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 
 class AppBlockingService {
   static final AppBlockingService _instance = AppBlockingService._internal();
@@ -186,5 +188,136 @@ class AppBlockingService {
   void dispose() {
     _checkTimer?.cancel();
     _checkTimer = null;
+  }
+
+  // Get blocking statistics for a specific period
+  Future<Map<String, dynamic>> getBlockingStatsForPeriod(String period) async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Mock data for demonstration - in real app, this would come from actual blocking logs
+    final mockBlockingData = {
+      'today': {
+        'blockedApps': 5,
+        'totalBlockTime': const Duration(hours: 2, minutes: 30),
+        'blockAttempts': 12,
+        'successfulBlocks': 10,
+        'blockedAppsList': [
+          'com.facebook.katana',
+          'com.instagram.android',
+          'com.google.android.youtube',
+          'com.zhiliaoapp.musically',
+          'com.whatsapp',
+        ],
+      },
+      'week': {
+        'blockedApps': 8,
+        'totalBlockTime': const Duration(hours: 15, minutes: 45),
+        'blockAttempts': 45,
+        'successfulBlocks': 38,
+        'blockedAppsList': [
+          'com.facebook.katana',
+          'com.instagram.android',
+          'com.google.android.youtube',
+          'com.zhiliaoapp.musically',
+          'com.whatsapp',
+          'com.spotify.music',
+          'com.netflix.mediaclient',
+          'com.discord',
+        ],
+      },
+      'month': {
+        'blockedApps': 12,
+        'totalBlockTime': const Duration(hours: 45, minutes: 20),
+        'blockAttempts': 180,
+        'successfulBlocks': 156,
+        'blockedAppsList': [
+          'com.facebook.katana',
+          'com.instagram.android',
+          'com.google.android.youtube',
+          'com.zhiliaoapp.musically',
+          'com.whatsapp',
+          'com.spotify.music',
+          'com.netflix.mediaclient',
+          'com.discord',
+          'com.reddit.frontpage',
+          'com.pinterest',
+          'com.snapchat.android',
+          'com.twitter.android',
+        ],
+      },
+    };
+
+    return Map<String, dynamic>.from(mockBlockingData[period] ?? {});
+  }
+
+  // Get blocking efficiency (successful blocks / total attempts)
+  Future<double> getBlockingEfficiency(String period) async {
+    final stats = await getBlockingStatsForPeriod(period);
+    final attempts = stats['blockAttempts'] ?? 0;
+    final successful = stats['successfulBlocks'] ?? 0;
+    
+    if (attempts == 0) return 0.0;
+    return (successful / attempts) * 100;
+  }
+
+  // Get most blocked apps for a period
+  Future<List<String>> getMostBlockedApps(String period) async {
+    final stats = await getBlockingStatsForPeriod(period);
+    final blockedAppsList = List<String>.from(stats['blockedAppsList'] ?? []);
+    return blockedAppsList;
+  }
+
+  // Save blocking event (for future implementation)
+  Future<void> saveBlockingEvent(String packageName, bool wasSuccessful) async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final key = 'blocking_event_${today}_$packageName';
+    
+    // Get existing events for today
+    final existingEvents = prefs.getStringList(key) ?? [];
+    existingEvents.add('${DateTime.now().millisecondsSinceEpoch}_${wasSuccessful ? 'success' : 'failed'}');
+    
+    // Keep only last 100 events to avoid memory issues
+    if (existingEvents.length > 100) {
+      existingEvents.removeRange(0, existingEvents.length - 100);
+    }
+    
+    await prefs.setStringList(key, existingEvents);
+  }
+
+  // Get blocking events for a specific app and date
+  Future<List<Map<String, dynamic>>> getBlockingEvents(String packageName, String date) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'blocking_event_${date}_$packageName';
+    final events = prefs.getStringList(key) ?? [];
+    
+    return events.map((event) {
+      final parts = event.split('_');
+      if (parts.length == 2) {
+        return {
+          'timestamp': int.parse(parts[0]),
+          'successful': parts[1] == 'success',
+        };
+      }
+      return null;
+    }).where((event) => event != null).cast<Map<String, dynamic>>().toList();
+  }
+
+  // Get total blocking time for a period
+  Future<Duration> getTotalBlockingTime(String period) async {
+    final stats = await getBlockingStatsForPeriod(period);
+    return stats['totalBlockTime'] ?? Duration.zero;
+  }
+
+  // Get blocking attempts count for a period
+  Future<int> getBlockingAttempts(String period) async {
+    final stats = await getBlockingStatsForPeriod(period);
+    return stats['blockAttempts'] ?? 0;
+  }
+
+  // Get successful blocks count for a period
+  Future<int> getSuccessfulBlocks(String period) async {
+    final stats = await getBlockingStatsForPeriod(period);
+    return stats['successfulBlocks'] ?? 0;
   }
 } 

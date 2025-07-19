@@ -8,6 +8,7 @@ class FocusTimerWidget extends StatefulWidget {
   final VoidCallback onStop;
   final VoidCallback onPauseOrResume;
   final bool isPaused;
+  final DateTime? pausedTime;
 
   const FocusTimerWidget({
     super.key,
@@ -16,6 +17,7 @@ class FocusTimerWidget extends StatefulWidget {
     required this.onStop,
     required this.onPauseOrResume,
     required this.isPaused,
+    this.pausedTime,
   });
 
   @override
@@ -26,6 +28,8 @@ class _FocusTimerWidgetState extends State<FocusTimerWidget>
     with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+  late AnimationController _pauseTimerController;
+  int _pauseDurationSeconds = 0;
 
   @override
   void initState() {
@@ -42,11 +46,26 @@ class _FocusTimerWidgetState extends State<FocusTimerWidget>
       curve: Curves.easeInOut,
     ));
     _pulseController.repeat(reverse: true);
+    
+    // Timer cho thời gian dừng đếm
+    _pauseTimerController = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    );
+    _pauseTimerController.addListener(() {
+      if (widget.isPaused && widget.pausedTime != null) {
+        setState(() {
+          _pauseDurationSeconds = DateTime.now().difference(widget.pausedTime!).inSeconds;
+        });
+      }
+    });
+    _pauseTimerController.repeat();
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
+    _pauseTimerController.dispose();
     super.dispose();
   }
 
@@ -172,13 +191,46 @@ class _FocusTimerWidgetState extends State<FocusTimerWidget>
           
           const SizedBox(height: 24),
           
-          // Progress percentage
-          Text(
-            '${widget.completionPercentage.toInt()}% hoàn thành',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white.withOpacity(0.8),
-            ),
+          // Progress percentage and pause info
+          Column(
+            children: [
+              Text(
+                '${widget.completionPercentage.toInt()}% hoàn thành',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.white.withOpacity(0.8),
+                ),
+              ),
+              if (widget.isPaused && _pauseDurationSeconds > 0) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.pause_circle,
+                        color: Colors.orange,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Đã dừng: ${Helpers.formatTimeRemaining(Duration(seconds: _pauseDurationSeconds))}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ),
           
           const SizedBox(height: 24),
@@ -213,6 +265,7 @@ class _FocusTimerWidgetState extends State<FocusTimerWidget>
                   margin: const EdgeInsets.only(left: 8),
                   child: ElevatedButton.icon(
                     onPressed: () {
+                      print('FocusTimerWidget: Nút dừng được bấm, isPaused: ${widget.isPaused}');
                       _showStopConfirmation();
                     },
                     icon: const Icon(Icons.stop),
@@ -236,6 +289,7 @@ class _FocusTimerWidgetState extends State<FocusTimerWidget>
   }
 
   void _showStopConfirmation() {
+    print('FocusTimerWidget: Hiển thị dialog dừng session');
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -251,6 +305,7 @@ class _FocusTimerWidgetState extends State<FocusTimerWidget>
           ),
           ElevatedButton(
             onPressed: () {
+              print('FocusTimerWidget: Người dùng xác nhận dừng session');
               Navigator.of(context).pop();
               widget.onStop();
             },

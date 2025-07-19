@@ -8,6 +8,7 @@ class AppConstants {
   static const String blockedAppsKey = 'blocked_apps';
   static const String settingsKey = 'app_settings';
   static const String statisticsKey = 'statistics';
+  static const String sessionHistoryKey = 'session_history';
   
   // Default Focus Durations (in minutes)
   static const List<int> defaultDurations = [15, 25, 45, 60, 90, 120];

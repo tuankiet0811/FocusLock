@@ -85,12 +85,16 @@ class Helpers {
     }
   }
 
-  // Calculate total focus time from sessions
+  // Calculate total focus time from sessions (sử dụng thời gian thực tế)
   static int calculateTotalFocusTime(List<dynamic> sessions) {
     int totalMinutes = 0;
     for (var session in sessions) {
-      if (session is Map<String, dynamic> && session['durationMinutes'] != null) {
-        totalMinutes += session['durationMinutes'] as int;
+      if (session is Map<String, dynamic>) {
+        // Sử dụng actualFocusMinutes nếu có, không thì dùng durationMinutes
+        final actualMinutes = session['actualFocusMinutes'] ?? session['durationMinutes'];
+        if (actualMinutes != null) {
+          totalMinutes += actualMinutes as int;
+        }
       }
     }
     return totalMinutes;
