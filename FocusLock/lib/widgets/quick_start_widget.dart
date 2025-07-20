@@ -3,10 +3,12 @@ import '../utils/constants.dart';
 
 class QuickStartWidget extends StatefulWidget {
   final Function(int duration, String? goal) onStartSession;
+  final bool hasSelectedApps;
 
   const QuickStartWidget({
     super.key,
     required this.onStartSession,
+    this.hasSelectedApps = false,
   });
 
   @override
@@ -186,6 +188,51 @@ class _QuickStartWidgetState extends State<QuickStartWidget> {
           ),
           
           const SizedBox(height: 16),
+          
+          // Warning if no apps selected
+          if (!widget.hasSelectedApps)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFF9800).withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: const Color(0xFFFF9800),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Chưa chọn ứng dụng nào',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFFF9800),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Vào tab "Ứng dụng" để chọn các app muốn chặn trong thời gian tập trung',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          
+          if (!widget.hasSelectedApps) const SizedBox(height: 16),
           
           // Quick tips
           Container(

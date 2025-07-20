@@ -9,6 +9,7 @@ class FocusTimerWidget extends StatefulWidget {
   final VoidCallback onPauseOrResume;
   final bool isPaused;
   final DateTime? pausedTime;
+  final String? goal;
 
   const FocusTimerWidget({
     super.key,
@@ -18,6 +19,7 @@ class FocusTimerWidget extends StatefulWidget {
     required this.onPauseOrResume,
     required this.isPaused,
     this.pausedTime,
+    this.goal,
   });
 
   @override
@@ -98,6 +100,46 @@ class _FocusTimerWidgetState extends State<FocusTimerWidget>
       ),
       child: Column(
         children: [
+          // Goal display (if exists)
+          if (widget.goal != null && widget.goal!.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.flag,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      widget.goal!,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          
           // Progress Circle
           AnimatedBuilder(
             animation: _pulseAnimation,

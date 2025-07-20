@@ -62,6 +62,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     
     _animationController.forward();
     _checkAndShowPermissionDialog();
+    _checkAndShowFirstTimeDialog();
   }
 
   Future<void> _checkAndShowPermissionDialog() async {
@@ -70,6 +71,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (!shown) {
       Future.delayed(Duration.zero, () => _showPermissionDialog());
       await prefs.setBool('shown_permission_dialog', true);
+    }
+  }
+
+  Future<void> _checkAndShowFirstTimeDialog() async {
+    final prefs = await SharedPreferences.getInstance();
+    final shown = prefs.getBool('shown_first_time_dialog') ?? false;
+    if (!shown) {
+      Future.delayed(const Duration(seconds: 2), () => _showFirstTimeDialog());
+      await prefs.setBool('shown_first_time_dialog', true);
     }
   }
 
@@ -120,6 +130,82 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       const SnackBar(
         content: Text('Đã mở cài đặt Accessibility. Tìm FocusLock và bật dịch vụ'),
         duration: Duration(seconds: 4),
+      ),
+    );
+  }
+
+  void _showFirstTimeDialog() {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: AlertDialog(
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.lightbulb_outline, color: Color(AppConstants.primaryColor)),
+            const SizedBox(width: 8),
+            const Flexible(
+              child: Text(
+                'Chào mừng đến với FocusLock!',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Để bắt đầu sử dụng FocusLock hiệu quả:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            const Text('1. 📱 Vào tab "Ứng dụng" để chọn các app muốn chặn'),
+            const SizedBox(height: 8),
+            const Text('2. ⏱️ Quay lại tab "Trang chủ" để bắt đầu phiên tập trung'),
+            const SizedBox(height: 8),
+            const Text('3. 🎯 Đặt mục tiêu và thời gian tập trung'),
+            const SizedBox(height: 8),
+            const Text('4. 🚫 FocusLock sẽ chặn các app đã chọn trong thời gian tập trung'),
+            const SizedBox(height: 12),
+            const Text(
+              '💡 Mẹo: Bạn có thể thay đổi danh sách app bị chặn bất cứ lúc nào!',
+              style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                if (!mounted) return;
+                Navigator.of(context).pop();
+                // Chuyển đến tab Ứng dụng
+                setState(() {
+                  _currentIndex = 2;
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(AppConstants.primaryColor),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('📱 Chọn ứng dụng ngay'),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              if (!mounted) return;
+              Navigator.of(context).pop();
+            },
+            child: const Text('Để sau'),
+          ),
+        ],
+        ),
       ),
     );
   }
@@ -393,6 +479,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             },
                             isPaused: focusService.currentSession?.status == SessionStatus.paused,
                             pausedTime: focusService.currentSession?.pausedTime,
+                            goal: focusService.currentSession?.goal,
                           ),
                           const SizedBox(height: 24),
                         ],
@@ -403,11 +490,66 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             (focusService.currentSession?.status == SessionStatus.completed ||
                              focusService.currentSession?.status == SessionStatus.cancelled)) ...[
                           QuickStartWidget(
+                            hasSelectedApps: focusService.hasSelectedApps,
                             onStartSession: (duration, goal) async {
+                              // Kiểm tra xem có ứng dụng nào được chọn không
+                              if (!focusService.hasSelectedApps) {
+                                // Hiển thị dialog xác nhận
+                                final shouldContinue = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Row(
+                                      children: [
+                                        Icon(Icons.warning_amber_rounded, color: Color(0xFFFF9800)),
+                                        SizedBox(width: 8),
+                                        Text('Chưa chọn ứng dụng'),
+                                      ],
+                                    ),
+                                    content: const Text(
+                                      'Bạn chưa chọn ứng dụng nào để chặn. Phiên tập trung sẽ bắt đầu mà không chặn ứng dụng nào.\n\n'
+                                      'Bạn có muốn tiếp tục không?',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(false),
+                                        child: const Text('Hủy'),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () => Navigator.of(context).pop(true),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(AppConstants.primaryColor),
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        child: const Text('Tiếp tục'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                
+                                if (shouldContinue != true) {
+                                  return; // Người dùng hủy
+                                }
+                              }
+                              
                               await focusService.startSession(
                                 durationMinutes: duration,
                                 goal: goal,
                               );
+                              
+                              // Hiển thị thông báo thành công
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      focusService.hasSelectedApps
+                                          ? 'Đã bắt đầu phiên tập trung với ${focusService.selectedApps.length} ứng dụng bị chặn!'
+                                          : 'Đã bắt đầu phiên tập trung!',
+                                    ),
+                                    backgroundColor: Colors.green,
+                                    duration: const Duration(seconds: 3),
+                                  ),
+                                );
+                              }
                             },
                           ),
                           const SizedBox(height: 24),

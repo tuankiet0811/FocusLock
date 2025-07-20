@@ -111,29 +111,35 @@ class _AppsScreenState extends State<AppsScreen> {
     return GestureDetector(
       onTap: () => _selectCategory(category),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? const Color(AppConstants.primaryColor) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? const Color(AppConstants.primaryColor) : Colors.grey[300]!,
           ),
         ),
-        child: Row(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
               size: 16,
               color: isSelected ? Colors.white : Colors.grey[600],
             ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: isSelected ? Colors.white : Colors.grey[600],
+            const SizedBox(height: 2),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w500,
+                  color: isSelected ? Colors.white : Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -186,38 +192,25 @@ class _AppsScreenState extends State<AppsScreen> {
           
           // Category buttons
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildCategoryButton('all', 'Tất cả', Icons.apps),
-                  const SizedBox(width: 8),
-                  _buildCategoryButton('social', 'Mạng xã hội', Icons.people),
-                  const SizedBox(width: 8),
-                  _buildCategoryButton('entertainment', 'Giải trí', Icons.movie),
-                  const SizedBox(width: 8),
-                  _buildCategoryButton('gaming', 'Game', Icons.games),
-                  const SizedBox(width: 8),
-                  _buildCategoryButton('communication', 'Liên lạc', Icons.message),
-                  const SizedBox(width: 8),
-                  _buildCategoryButton('productivity', 'Làm việc', Icons.work),
-                  const SizedBox(width: 8),
-                  _buildCategoryButton('shopping', 'Mua sắm', Icons.shopping_cart),
-                  const SizedBox(width: 8),
-                  _buildCategoryButton('news', 'Tin tức', Icons.article),
-                  const SizedBox(width: 8),
-                  _buildCategoryButton('education', 'Học tập', Icons.school),
-                  const SizedBox(width: 8),
-                  _buildCategoryButton('finance', 'Tài chính', Icons.account_balance),
-                  const SizedBox(width: 8),
-                  _buildCategoryButton('health', 'Sức khỏe', Icons.favorite),
-                  const SizedBox(width: 8),
-                  _buildCategoryButton('travel', 'Du lịch', Icons.flight),
-                  const SizedBox(width: 8),
-                  _buildCategoryButton('utilities', 'Tiện ích', Icons.build),
-                ],
-              ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildCategoryButton('all', 'Tất cả', Icons.apps),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _buildCategoryButton('social', 'Xã hội', Icons.people),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _buildCategoryButton('entertainment', 'Giải trí', Icons.movie),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _buildCategoryButton('gaming', 'Game', Icons.games),
+                ),
+              ],
             ),
           ),
           

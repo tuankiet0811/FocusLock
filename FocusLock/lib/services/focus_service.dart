@@ -41,6 +41,12 @@ class FocusService extends ChangeNotifier {
   bool get isActive => _isActive;
   List<AppInfo> get blockedApps => _blockedApps;
   List<FocusSession> get sessions => _sessions;
+  
+  // Check if any apps are selected for blocking
+  bool get hasSelectedApps => _blockedApps.any((app) => app.isBlocked);
+  
+  // Get selected apps for blocking
+  List<AppInfo> get selectedApps => _blockedApps.where((app) => app.isBlocked).toList();
 
   // Initialize service
   Future<void> init() async {
@@ -61,19 +67,26 @@ class FocusService extends ChangeNotifier {
     _blockedApps = await _storageService.getBlockedApps();
     print('FocusService: Loaded ${_blockedApps.length} blocked apps');
     
-    // If no blocked apps are set, add some default social media apps
+    // If no blocked apps are set, add some default social media apps (but not blocked by default)
     if (_blockedApps.isEmpty) {
-      print('FocusService: No blocked apps found, adding defaults');
+      print('FocusService: No blocked apps found, adding defaults (not blocked)');
       _blockedApps = [
-        AppInfo(packageName: 'com.facebook.katana', appName: 'Facebook', isBlocked: true),
-        AppInfo(packageName: 'com.instagram.android', appName: 'Instagram', isBlocked: true),
-        AppInfo(packageName: 'com.whatsapp', appName: 'WhatsApp', isBlocked: true),
-        AppInfo(packageName: 'com.google.android.youtube', appName: 'YouTube', isBlocked: true),
-        AppInfo(packageName: 'com.twitter.android', appName: 'Twitter/X', isBlocked: true),
-        AppInfo(packageName: 'com.zhiliaoapp.musically', appName: 'TikTok', isBlocked: true),
+        AppInfo(packageName: 'com.facebook.katana', appName: 'Facebook', isBlocked: false),
+        AppInfo(packageName: 'com.instagram.android', appName: 'Instagram', isBlocked: false),
+        AppInfo(packageName: 'com.whatsapp', appName: 'WhatsApp', isBlocked: false),
+        AppInfo(packageName: 'com.google.android.youtube', appName: 'YouTube', isBlocked: false),
+        AppInfo(packageName: 'com.twitter.android', appName: 'Twitter/X', isBlocked: false),
+        AppInfo(packageName: 'com.zhiliaoapp.musically', appName: 'TikTok', isBlocked: false),
+        AppInfo(packageName: 'com.telegram.messenger', appName: 'Telegram', isBlocked: false),
+        AppInfo(packageName: 'com.discord', appName: 'Discord', isBlocked: false),
+        AppInfo(packageName: 'com.reddit.frontpage', appName: 'Reddit', isBlocked: false),
+        AppInfo(packageName: 'com.pinterest', appName: 'Pinterest', isBlocked: false),
+        AppInfo(packageName: 'com.linkedin.android', appName: 'LinkedIn', isBlocked: false),
+        AppInfo(packageName: 'com.spotify.music', appName: 'Spotify', isBlocked: false),
+        AppInfo(packageName: 'com.netflix.mediaclient', appName: 'Netflix', isBlocked: false),
       ];
       await _storageService.saveBlockedApps(_blockedApps);
-      print('FocusService: Saved default blocked apps');
+      print('FocusService: Saved default apps (not blocked by default)');
     }
     
     _sessions = await _storageService.getFocusSessions();
@@ -237,14 +250,28 @@ class FocusService extends ChangeNotifier {
     // Start timer
     _startTimer();
 
-    // Start app blocking
-    await _appBlockingService.startBlocking(_blockedApps);
+    // Start app blocking - chỉ chặn những app có isBlocked = true
+    final appsToBlock = _blockedApps.where((app) => app.isBlocked).toList();
+    print('FocusService: Starting blocking for ${appsToBlock.length} selected apps');
+    if (appsToBlock.isNotEmpty) {
+      print('FocusService: Apps to block: ${appsToBlock.map((app) => '${app.appName} (${app.packageName})').join(', ')}');
+    } else {
+      print('FocusService: No apps selected for blocking');
+    }
+    await _appBlockingService.startBlocking(appsToBlock);
 
     // Show notification
     await _notificationService.showFocusStartNotification(
       durationMinutes: durationMinutes,
       goal: goal,
     );
+
+    // Thông báo nếu chưa chọn app nào để chặn
+    if (appsToBlock.isEmpty) {
+      print('FocusService: Warning - No apps selected for blocking');
+      // Gửi event để UI có thể hiển thị thông báo
+      notifyListeners();
+    }
 
     print('FocusService: Đã hoàn thành startSession');
     
@@ -585,6 +612,12 @@ class FocusService extends ChangeNotifier {
       );
       await _storageService.updateFocusSession(_currentSession!);
       await _statisticsService.updateSession(_currentSession!);
+      
+      // Restart app blocking with new list
+      final appsToBlock = apps.where((app) => app.isBlocked).toList();
+      await _appBlockingService.stopBlocking();
+      await _appBlockingService.startBlocking(appsToBlock);
+      print('FocusService: Restarted app blocking with ${appsToBlock.length} apps');
       
       // Track app blocking changes
       final newlyBlocked = newBlockedApps.difference(previousBlockedApps);
