@@ -1,4 +1,4 @@
-import 'focus_session.dart';
+import 'session_status.dart';
 
 class SessionHistory {
   final String id;

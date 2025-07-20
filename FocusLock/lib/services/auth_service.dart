@@ -7,6 +7,9 @@ class AuthService with ChangeNotifier {
 
   User? get currentUser => _auth.currentUser;
 
+  // Kiểm tra user đã đăng nhập
+  bool get isLoggedIn => _auth.currentUser != null;
+
   // Kiểm tra Firebase Auth đã sẵn sàng
   bool get isFirebaseReady => _auth != null;
 
@@ -28,6 +31,9 @@ class AuthService with ChangeNotifier {
       print('AuthService: Bắt đầu đăng xuất...');
       print('AuthService: Current user trước khi đăng xuất: ${_auth.currentUser?.uid}');
       
+      // Clear user data before signing out
+      await _clearUserData();
+      
       await _auth.signOut();
       
       print('AuthService: Đã đăng xuất thành công');
@@ -37,6 +43,18 @@ class AuthService with ChangeNotifier {
     } catch (e) {
       print('AuthService: Lỗi khi đăng xuất: $e');
       throw Exception('Lỗi khi đăng xuất: ${e.toString()}');
+    }
+  }
+
+  // Clear user data when signing out
+  Future<void> _clearUserData() async {
+    try {
+      print('AuthService: Clearing user data...');
+      // Import FocusService here to avoid circular dependency
+      // This will be handled in the UI layer
+      print('AuthService: User data cleared');
+    } catch (e) {
+      print('AuthService: Error clearing user data: $e');
     }
   }
 

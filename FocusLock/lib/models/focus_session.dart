@@ -1,3 +1,5 @@
+import 'session_status.dart';
+
 class FocusSession {
   final String id;
   final DateTime startTime;
@@ -127,15 +129,40 @@ class FocusSession {
     }
     
     final now = DateTime.now();
-    final totalElapsedSeconds = now.difference(startTime).inSeconds;
-    final totalElapsedMinutes = (totalElapsedSeconds / 60).floor(); // Làm tròn xuống
-    final actualTime = totalElapsedMinutes - totalPauseTimeMinutes;
     
-    print('FocusSession: calculateActualFocusTime - startTime: $startTime, now: $now');
-    print('FocusSession: totalElapsedSeconds: ${totalElapsedSeconds}s, totalElapsedMinutes: ${totalElapsedMinutes}m');
-    print('FocusSession: totalPauseTimeMinutes: $totalPauseTimeMinutes, actualTime: $actualTime');
+    // Nếu session đang pause, tính đến thời điểm pause
+    final endTime = this.endTime ?? (status == SessionStatus.paused ? pausedTime : now);
     
-    return actualTime;
+    if (endTime == null) {
+      print('FocusSession: Không thể tính thời gian thực tế - endTime và pausedTime đều null');
+      return 0;
+    }
+    
+    // Tính tổng thời gian đã trôi qua (tính bằng giây)
+    final totalElapsedSeconds = endTime.difference(startTime).inSeconds;
+    
+    // Tính tổng thời gian pause (tính bằng giây)
+    int totalPauseSeconds = 0;
+    for (final pause in pauseHistory) {
+      if (pause.resumeTime != null) {
+        // Nếu có resumeTime, tính thời gian pause chính xác
+        totalPauseSeconds += pause.resumeTime!.difference(pause.pauseTime).inSeconds;
+      } else if (status == SessionStatus.paused && pause.pauseTime == pausedTime) {
+        // Nếu đang pause và đây là pause cuối cùng, tính đến thời điểm hiện tại
+        totalPauseSeconds += now.difference(pause.pauseTime).inSeconds;
+      }
+    }
+    
+    // Tính thời gian thực tế = tổng thời gian - tổng thời gian pause
+    final actualFocusSeconds = totalElapsedSeconds - totalPauseSeconds;
+    final calculatedActualFocusMinutes = (actualFocusSeconds / 60).floor(); // Làm tròn xuống
+    
+    print('FocusSession: calculateActualFocusTime - startTime: $startTime, endTime: $endTime');
+    print('FocusSession: totalElapsedSeconds: ${totalElapsedSeconds}s');
+    print('FocusSession: totalPauseSeconds: ${totalPauseSeconds}s');
+    print('FocusSession: actualFocusSeconds: ${actualFocusSeconds}s, calculatedActualFocusMinutes: ${calculatedActualFocusMinutes}m');
+    
+    return calculatedActualFocusMinutes.clamp(0, durationMinutes); // Đảm bảo không âm và không vượt quá duration
   }
 
   // Tính thời gian còn lại
@@ -144,19 +171,48 @@ class FocusSession {
     return durationMinutes - actualFocusTime;
   }
 
-  // Tính phần trăm hoàn thành
+  // Tính phần trăm hoàn thành dựa trên thời gian đã trôi qua
   double calculateCompletionPercentage() {
-    final actualFocusTime = calculateActualFocusTime();
-    return (actualFocusTime / durationMinutes).clamp(0.0, 1.0);
+    final now = DateTime.now();
+    
+    // Nếu session đã hoàn thành
+    if (status == SessionStatus.completed) {
+      return 1.0; // 100% hoàn thành
+    }
+    
+    // Nếu session đang pause, tính đến thời điểm pause
+    final currentTime = status == SessionStatus.paused ? pausedTime : now;
+    
+    if (currentTime == null) {
+      return 0.0;
+    }
+    
+    // Tính thời gian đã trôi qua (tính bằng giây)
+    final elapsedSeconds = currentTime.difference(startTime).inSeconds;
+    
+    // Tính tổng thời gian pause (tính bằng giây)
+    int totalPauseSeconds = 0;
+    for (final pause in pauseHistory) {
+      if (pause.resumeTime != null) {
+        // Nếu có resumeTime, tính thời gian pause chính xác
+        totalPauseSeconds += pause.resumeTime!.difference(pause.pauseTime).inSeconds;
+      } else if (status == SessionStatus.paused && pause.pauseTime == pausedTime) {
+        // Nếu đang pause và đây là pause cuối cùng, tính đến thời điểm hiện tại
+        totalPauseSeconds += now.difference(pause.pauseTime).inSeconds;
+      }
+    }
+    
+    // Tính thời gian thực tế đã trôi qua (không tính thời gian pause)
+    final actualElapsedSeconds = elapsedSeconds - totalPauseSeconds;
+    
+    // Tính phần trăm hoàn thành
+    final percentage = (actualElapsedSeconds / durationSeconds).clamp(0.0, 1.0);
+    
+    print('FocusSession: calculateCompletionPercentage - elapsedSeconds: ${elapsedSeconds}s, totalPauseSeconds: ${totalPauseSeconds}s');
+    print('FocusSession: actualElapsedSeconds: ${actualElapsedSeconds}s, durationSeconds: ${durationSeconds}s, percentage: ${percentage * 100}%');
+    
+    return percentage;
   }
-}
-
-// Enum cho trạng thái session
-enum SessionStatus {
-  running,
-  paused,
-  completed,
-  cancelled,
 }
 
 // Class để track lịch sử pause/resume

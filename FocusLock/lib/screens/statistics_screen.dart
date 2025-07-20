@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/focus_service.dart';
 import '../services/app_usage_service.dart';
 import '../services/app_blocking_service.dart';
+import '../models/focus_session.dart';
+import '../models/session_status.dart';
 import '../utils/constants.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:intl/intl.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({Key? key}) : super(key: key);
@@ -158,7 +160,16 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     final sessions = _getSessionsForPeriod(focusService);
     final totalFocusTime = sessions.fold<Duration>(
       Duration.zero,
-      (total, session) => total + Duration(minutes: session.actualFocusMinutes ?? session.durationMinutes),
+      (total, session) {
+        // Tính toán actualFocusMinutes chính xác
+        int actualMinutes;
+        if (session.status == SessionStatus.completed || session.status == SessionStatus.cancelled) {
+          actualMinutes = session.actualFocusMinutes ?? session.calculateActualFocusTime();
+        } else {
+          actualMinutes = session.calculateActualFocusTime();
+        }
+        return total + Duration(minutes: actualMinutes);
+      },
     );
     final totalSessions = sessions.length;
 
@@ -231,7 +242,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                 child: _buildStatCard(
                   'Trung bình/phiên',
                   totalSessions > 0 
-                      ? _formatDuration(Duration(minutes: totalFocusTime.inMinutes ~/ totalSessions))
+                      ? _formatDuration(Duration(minutes: _calculateAverageSessionTime(sessions)))
                       : '0 phút',
                   Icons.analytics,
                   Colors.orange,
@@ -241,7 +252,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
               Expanded(
                 child: _buildStatCard(
                   'Hiệu suất',
-                  '${_calculateProductivityScore(sessions)}%',
+                  '${_calculateOverallPerformance(sessions)}%',
                   Icons.trending_up,
                   Colors.purple,
                 ),
@@ -650,11 +661,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                           Icons.timer,
                         ),
                       ),
-                      const SizedBox(width: 16),
                       Expanded(
                         child: _buildHistoryStatItem(
                           'Thực tế',
-                          '${session.actualFocusMinutes ?? session.durationMinutes} phút',
+                          '${_calculateActualFocusMinutes(session)} phút',
                           Icons.flag,
                         ),
                       ),
@@ -662,7 +672,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                       Expanded(
                         child: _buildHistoryStatItem(
                           'Hiệu suất',
-                          '${((session.actualFocusMinutes ?? session.durationMinutes) / session.durationMinutes * 100).round()}%',
+                          '${_calculatePerformancePercentage(session)}%',
                           Icons.trending_up,
                         ),
                       ),
@@ -832,7 +842,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     num totalScore = 0;
     for (final session in sessions) {
       // Tính completion rate dựa trên thời gian thực tế so với mục tiêu
-      final actualTime = session.actualFocusMinutes ?? session.durationMinutes;
+      final actualTime = _calculateActualFocusMinutes(session);
       final completionRate = actualTime / session.durationMinutes;
       if (completionRate >= 1.0) {
         totalScore += 100;
@@ -844,9 +854,42 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     return (totalScore / sessions.length).round().toInt();
   }
 
+  int _calculateOverallPerformance(List<dynamic> sessions) {
+    if (sessions.isEmpty) return 0;
+    
+    int totalActualMinutes = 0;
+    int totalPlannedMinutes = 0;
+    
+    for (final session in sessions) {
+      totalActualMinutes += _calculateActualFocusMinutes(session);
+      final planned = session.durationMinutes;
+      if (planned is int) {
+        totalPlannedMinutes += planned;
+      } else if (planned is num) {
+        totalPlannedMinutes += planned.toInt();
+      } else {
+        totalPlannedMinutes += 0;
+      }
+    }
+    
+    if (totalPlannedMinutes <= 0) return 0;
+    return ((totalActualMinutes / totalPlannedMinutes) * 100).round().toInt();
+  }
+
+  int _calculateAverageSessionTime(List<dynamic> sessions) {
+    if (sessions.isEmpty) return 0;
+    
+    int totalActualMinutes = 0;
+    for (final session in sessions) {
+      totalActualMinutes += _calculateActualFocusMinutes(session);
+    }
+    
+    return (totalActualMinutes / sessions.length).round().toInt();
+  }
+
   int _calculateBlockingEfficiency(int attempts, int blocked) {
     if (attempts == 0) return 0;
-    return ((blocked / attempts) * 100).round();
+    return ((blocked / attempts) * 100).round().toInt();
   }
 
   String _getProductivityMessage(int score) {
@@ -856,5 +899,20 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     if (score >= 60) return 'Khá tốt';
     if (score >= 50) return 'Trung bình';
     return 'Cần cải thiện';
+  }
+
+  int _calculateActualFocusMinutes(dynamic session) {
+    // Tính toán actualFocusMinutes chính xác
+    if (session.status == SessionStatus.completed || session.status == SessionStatus.cancelled) {
+      return session.actualFocusMinutes ?? session.calculateActualFocusTime();
+    } else {
+      return session.calculateActualFocusTime();
+    }
+  }
+
+  int _calculatePerformancePercentage(dynamic session) {
+    final actualTime = _calculateActualFocusMinutes(session);
+    if (actualTime <= 0 || session.durationMinutes <= 0) return 0;
+    return ((actualTime / session.durationMinutes) * 100).round().toInt();
   }
 } 

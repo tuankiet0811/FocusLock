@@ -14,7 +14,7 @@ class QuickStartWidget extends StatefulWidget {
 }
 
 class _QuickStartWidgetState extends State<QuickStartWidget> {
-  int _selectedDuration = 25;
+  int _selectedDuration = 5; // Thay đổi từ 1 thành 5 phút
   final TextEditingController _goalController = TextEditingController();
 
   @override
@@ -205,7 +205,7 @@ class _QuickStartWidgetState extends State<QuickStartWidget> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Mẹo: Bắt đầu với 25 phút và tăng dần thời gian khi quen dần',
+                    'Mẹo: Bắt đầu với 5 phút để làm quen, sau đó tăng dần thời gian',
                     style: TextStyle(
                       fontSize: 14,
                       color: const Color(0xFF2E7D32),

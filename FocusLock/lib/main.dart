@@ -10,11 +10,24 @@ import 'package:firebase_core/firebase_core.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize FocusService
-  final focusService = FocusService();
-  await focusService.init();
-  await Firebase.initializeApp();
-  runApp(AppRoot(focusService: focusService));
+  try {
+    // Initialize Firebase first
+    await Firebase.initializeApp();
+    print('Firebase initialized successfully');
+    
+    // Initialize FocusService after Firebase
+    final focusService = FocusService();
+    await focusService.init();
+    print('FocusService initialized successfully');
+    
+    runApp(AppRoot(focusService: focusService));
+  } catch (e) {
+    print('Error initializing app: $e');
+    // Fallback without Firebase
+    final focusService = FocusService();
+    await focusService.init();
+    runApp(AppRoot(focusService: focusService));
+  }
 }
 
 class AppRoot extends StatefulWidget {
@@ -24,8 +37,31 @@ class AppRoot extends StatefulWidget {
   State<AppRoot> createState() => _AppRootState();
 }
 
-class _AppRootState extends State<AppRoot> {
+class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   Key _appKey = UniqueKey();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      print('App is going to background, auto-saving session state...');
+      widget.focusService.autoSaveSessionState();
+      widget.focusService.autoSaveTimerState();
+    }
+  }
 
   void _restartApp() {
     setState(() {
@@ -124,6 +160,8 @@ class AuthGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context, listen: false);
+    final focusService = Provider.of<FocusService>(context, listen: false);
+    
     return StreamBuilder(
       stream: authService.authStateChanges(),
       builder: (context, snapshot) {
@@ -138,10 +176,18 @@ class AuthGate extends StatelessWidget {
           );
         }
         if (snapshot.hasData) {
-          print('AuthGate: Đã đăng nhập user: \\${snapshot.data}');
+          print('AuthGate: Đã đăng nhập user: ${snapshot.data}');
+          // Load user-specific data when user logs in
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            focusService.loadUserData();
+          });
           return HomeScreen(onRestart: onRestart);
         } else {
           print('AuthGate: Chưa đăng nhập');
+          // Clear user data when user logs out
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            focusService.clearUserData();
+          });
           return LoginScreen(onRestart: onRestart);
         }
       },

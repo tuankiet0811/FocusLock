@@ -11,7 +11,7 @@ class AppConstants {
   static const String sessionHistoryKey = 'session_history';
   
   // Default Focus Durations (in minutes)
-  static const List<int> defaultDurations = [15, 25, 45, 60, 90, 120];
+  static const List<int> defaultDurations = [5, 15, 25, 45, 60, 90, 120];
   
   // Default Blocked Apps (Social Media)
   static const List<Map<String, String>> defaultBlockedApps = [

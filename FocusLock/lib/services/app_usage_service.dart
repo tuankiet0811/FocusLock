@@ -79,20 +79,56 @@ class AppUsageService {
     return [...defaultApps, ...commonApps];
   }
 
-  // Get apps by category
-  Future<List<AppInfo>> getAppsByCategory(String category) async {
-    final allApps = await getAllApps();
+  // Get apps by category from a given list
+  Future<List<AppInfo>> getAppsByCategory(String category, {List<AppInfo>? appsList}) async {
+    final allApps = appsList ?? await getAllApps();
+    print('AppUsageService: getAppsByCategory - category: $category, total apps: ${allApps.length}');
     
+    List<AppInfo> result;
     switch (category.toLowerCase()) {
       case 'social':
-        return allApps.where((app) => _isSocialMediaApp(app.packageName)).toList();
+        result = allApps.where((app) => _isSocialMediaApp(app.packageName)).toList();
+        break;
       case 'entertainment':
-        return allApps.where((app) => _isEntertainmentApp(app.packageName)).toList();
+        result = allApps.where((app) => _isEntertainmentApp(app.packageName)).toList();
+        break;
       case 'productivity':
-        return allApps.where((app) => _isProductivityApp(app.packageName)).toList();
+        result = allApps.where((app) => _isProductivityApp(app.packageName)).toList();
+        break;
+      case 'gaming':
+        result = allApps.where((app) => _isGamingApp(app.packageName)).toList();
+        break;
+      case 'communication':
+        result = allApps.where((app) => _isCommunicationApp(app.packageName)).toList();
+        break;
+      case 'shopping':
+        result = allApps.where((app) => _isShoppingApp(app.packageName)).toList();
+        break;
+      case 'news':
+        result = allApps.where((app) => _isNewsApp(app.packageName)).toList();
+        break;
+      case 'education':
+        result = allApps.where((app) => _isEducationApp(app.packageName)).toList();
+        break;
+      case 'finance':
+        result = allApps.where((app) => _isFinanceApp(app.packageName)).toList();
+        break;
+      case 'health':
+        result = allApps.where((app) => _isHealthApp(app.packageName)).toList();
+        break;
+      case 'travel':
+        result = allApps.where((app) => _isTravelApp(app.packageName)).toList();
+        break;
+      case 'utilities':
+        result = allApps.where((app) => _isUtilitiesApp(app.packageName)).toList();
+        break;
       default:
-        return allApps;
+        result = allApps;
+        break;
     }
+    
+    print('AppUsageService: $category category - found ${result.length} apps');
+    return result;
   }
 
   // Check if app is social media
@@ -140,8 +176,261 @@ class AppUsageService {
       'com.trello',
       'com.asana.app',
       'com.google.android.gm',
+      'com.slack',
+      'com.microsoft.teams',
+      'com.zoom.us',
+      'com.google.android.apps.meetings',
+      'com.dropbox.android',
+      'com.google.android.apps.drive',
+      'com.evernote',
+      'com.wunderlist.android',
+      'com.todoist',
+      'com.any.do',
     ];
     return productivityPackages.contains(packageName);
+  }
+
+  // Check if app is gaming
+  bool _isGamingApp(String packageName) {
+    final gamingPackages = [
+      'com.activision.callofduty.shooter',
+      'com.epicgames.fortnite',
+      'com.roblox.client',
+      'com.mojang.minecraftpe',
+      'com.nianticlabs.pokemongo',
+      'com.supercell.clashofclans',
+      'com.supercell.clashroyale',
+      'com.supercell.brawlstars',
+      'com.king.candycrushsaga',
+      'com.king.candycrushsoda',
+      'com.ea.gp.fifamobile',
+      'com.ea.gp.nbalive',
+      'com.tencent.ig',
+      'com.tencent.tmgp.pubgmhd',
+      'com.gametion.freefire',
+      'com.garena.game.kgvn',
+      'com.vng.g6.a',
+      'com.vng.g6.b',
+      'com.vng.g6.c',
+      'com.vng.g6.d',
+    ];
+    return gamingPackages.contains(packageName);
+  }
+
+  // Check if app is communication
+  bool _isCommunicationApp(String packageName) {
+    final communicationPackages = [
+      'com.whatsapp',
+      'com.telegram.messenger',
+      'com.skype.raider',
+      'com.viber.voip',
+      'com.linecorp.LGTALK',
+      'com.tencent.mm',
+      'com.tencent.mobileqq',
+      'com.tencent.tim',
+      'com.tencent.qq',
+      'com.tencent.qqmusic',
+      'com.tencent.qqsport',
+      'com.tencent.qqnews',
+      'com.tencent.qqreader',
+      'com.tencent.qqpimsecure',
+      'com.tencent.qqgame',
+      'com.tencent.qqvideo',
+      'com.tencent.qqmail',
+      'com.tencent.qqbrowser',
+      'com.tencent.qqpinyin',
+      'com.tencent.qqinput',
+    ];
+    return communicationPackages.contains(packageName);
+  }
+
+  // Check if app is shopping
+  bool _isShoppingApp(String packageName) {
+    final shoppingPackages = [
+      'com.amazon.shopping',
+      'com.ebay.mobile',
+      'com.alibaba.aliexpresshd',
+      'com.taobao.taobao',
+      'com.taobao.lite',
+      'com.taobao.wireless',
+      'com.taobao.tmall',
+      'com.taobao.tmall.lite',
+      'com.taobao.tmall.wireless',
+      'com.taobao.tmall.hd',
+      'com.taobao.tmall.lite.hd',
+      'com.taobao.tmall.wireless.hd',
+      'com.taobao.tmall.lite.wireless',
+      'com.taobao.tmall.lite.wireless.hd',
+      'com.taobao.tmall.lite.wireless.hd.lite',
+      'com.taobao.tmall.lite.wireless.hd.lite.wireless',
+      'com.taobao.tmall.lite.wireless.hd.lite.wireless.hd',
+      'com.taobao.tmall.lite.wireless.hd.lite.wireless.hd.lite',
+      'com.taobao.tmall.lite.wireless.hd.lite.wireless.hd.lite.wireless',
+      'com.taobao.tmall.lite.wireless.hd.lite.wireless.hd.lite.wireless.hd',
+    ];
+    return shoppingPackages.contains(packageName);
+  }
+
+  // Check if app is news
+  bool _isNewsApp(String packageName) {
+    final newsPackages = [
+      'com.google.android.apps.news',
+      'com.nytimes.android',
+      'com.washingtonpost.rainbow',
+      'com.bbc.news',
+      'com.cnn.mobile.android.phone',
+      'com.reuters.news',
+      'com.bloomberg.news',
+      'com.ft.mobile.alpha',
+      'com.economist.lamarr',
+      'com.medium.reader',
+      'com.quora.android',
+      'com.reddit.frontpage',
+      'com.reddit.launch',
+      'com.reddit.app',
+      'com.reddit.inc',
+      'com.reddit.beta',
+      'com.reddit.alpha',
+      'com.reddit.dev',
+      'com.reddit.debug',
+      'com.reddit.test',
+    ];
+    return newsPackages.contains(packageName);
+  }
+
+  // Check if app is education
+  bool _isEducationApp(String packageName) {
+    final educationPackages = [
+      'org.khanacademy.android',
+      'com.duolingo',
+      'com.memrise.android.memrisecompanion',
+      'com.babbel.mobile.android.en',
+      'com.rosettastone.android',
+      'com.udacity.android',
+      'com.coursera.android',
+      'com.edx.android',
+      'com.skillshare.android',
+      'com.udemy.android',
+      'com.lynda.android',
+      'com.pluralsight.android',
+      'com.codecademy.android',
+      'com.freecodecamp.android',
+      'com.sololearn.android',
+      'com.grasshopper.app',
+      'com.mimo.android',
+      'com.programminghub.android',
+      'com.coding.android',
+      'com.learn.android',
+    ];
+    return educationPackages.contains(packageName);
+  }
+
+  // Check if app is finance
+  bool _isFinanceApp(String packageName) {
+    final financePackages = [
+      'com.paypal.android.p2pmobile',
+      'com.venmo',
+      'com.square.cash',
+      'com.stripe.android',
+      'com.coinbase.android',
+      'com.binance.dev',
+      'com.robinhood.android',
+      'com.td.ameritrade.mobile',
+      'com.etrade.mobile',
+      'com.fidelity.android',
+      'com.schwab.mobile',
+      'com.vanguard.mobile',
+      'com.mint',
+      'com.youneedabudget',
+      'com.personalcapital',
+      'com.acorns.android',
+      'com.stashinvest',
+      'com.wealthfront',
+      'com.betterment',
+      'com.sofi',
+    ];
+    return financePackages.contains(packageName);
+  }
+
+  // Check if app is health
+  bool _isHealthApp(String packageName) {
+    final healthPackages = [
+      'com.fitbit.FitbitMobile',
+      'com.garmin.android.apps.connectmobile',
+      'com.polar.polarexercise',
+      'com.samsung.android.health',
+      'com.huawei.health',
+      'com.xiaomi.hm.health',
+      'com.oppo.health',
+      'com.vivo.health',
+      'com.oneplus.health',
+      'com.lenovo.health',
+      'com.sony.health',
+      'com.lge.health',
+      'com.motorola.health',
+      'com.nokia.health',
+      'com.htc.health',
+      'com.asus.health',
+      'com.zte.health',
+      'com.alcatel.health',
+      'com.tcl.health',
+      'com.blackberry.health',
+    ];
+    return healthPackages.contains(packageName);
+  }
+
+  // Check if app is travel
+  bool _isTravelApp(String packageName) {
+    final travelPackages = [
+      'com.google.android.apps.maps',
+      'com.waze',
+      'com.uber',
+      'com.lyft',
+      'com.airbnb.android',
+      'com.booking',
+      'com.expedia.bookings',
+      'com.hotels',
+      'com.tripadvisor.android',
+      'com.yelp.android',
+      'com.foursquare.android',
+      'com.google.android.apps.travel',
+      'com.google.android.apps.travel.booking',
+      'com.google.android.apps.travel.flights',
+      'com.google.android.apps.travel.hotels',
+      'com.google.android.apps.travel.things',
+      'com.google.android.apps.travel.explore',
+      'com.google.android.apps.travel.trips',
+      'com.google.android.apps.travel.offline',
+      'com.google.android.apps.travel.weather',
+    ];
+    return travelPackages.contains(packageName);
+  }
+
+  // Check if app is utilities
+  bool _isUtilitiesApp(String packageName) {
+    final utilitiesPackages = [
+      'com.google.android.apps.photos',
+      'com.google.android.apps.docs',
+      'com.google.android.apps.drive',
+      'com.google.android.apps.calendar',
+      'com.google.android.apps.contacts',
+      'com.google.android.apps.clock',
+      'com.google.android.apps.calculator',
+      'com.google.android.apps.translate',
+      'com.google.android.apps.translate.offline',
+      'com.google.android.apps.translate.voice',
+      'com.google.android.apps.translate.camera',
+      'com.google.android.apps.translate.conversation',
+      'com.google.android.apps.translate.typing',
+      'com.google.android.apps.translate.handwriting',
+      'com.google.android.apps.translate.instant',
+      'com.google.android.apps.translate.offline.voice',
+      'com.google.android.apps.translate.offline.camera',
+      'com.google.android.apps.translate.offline.conversation',
+      'com.google.android.apps.translate.offline.typing',
+      'com.google.android.apps.translate.offline.handwriting',
+    ];
+    return utilitiesPackages.contains(packageName);
   }
 
   // Get app icon data (returns null for now, can be extended later)
@@ -220,6 +509,33 @@ class AppUsageService {
           break;
         case 'productivity':
           isInCategory = _isProductivityApp(packageName);
+          break;
+        case 'gaming':
+          isInCategory = _isGamingApp(packageName);
+          break;
+        case 'communication':
+          isInCategory = _isCommunicationApp(packageName);
+          break;
+        case 'shopping':
+          isInCategory = _isShoppingApp(packageName);
+          break;
+        case 'news':
+          isInCategory = _isNewsApp(packageName);
+          break;
+        case 'education':
+          isInCategory = _isEducationApp(packageName);
+          break;
+        case 'finance':
+          isInCategory = _isFinanceApp(packageName);
+          break;
+        case 'health':
+          isInCategory = _isHealthApp(packageName);
+          break;
+        case 'travel':
+          isInCategory = _isTravelApp(packageName);
+          break;
+        case 'utilities':
+          isInCategory = _isUtilitiesApp(packageName);
           break;
       }
 

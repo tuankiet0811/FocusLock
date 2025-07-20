@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/focus_service.dart';
-import '../models/focus_session.dart';
-import '../utils/helpers.dart';
-import '../utils/constants.dart';
-import '../widgets/focus_timer_widget.dart';
-import '../widgets/quick_start_widget.dart';
-import 'apps_screen.dart';
-import 'debug_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../services/app_blocking_service.dart';
-import 'package:android_intent_plus/android_intent.dart';
-import 'package:android_intent_plus/flag.dart';
 import '../services/auth_service.dart';
+import '../models/focus_session.dart';
+import '../models/session_status.dart';
+import '../utils/constants.dart';
 import 'login_screen.dart';
+import 'register_screen.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
 import 'statistics_screen.dart';
+import 'apps_screen.dart';
+import '../widgets/focus_timer_widget.dart';
+import '../widgets/quick_start_widget.dart';
+import '../utils/helpers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:android_intent_plus/flag.dart';
+import 'package:flutter/foundation.dart';
+import '../services/storage_service.dart';
+import '../services/hybrid_storage_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onRestart;
@@ -236,6 +239,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                 onPressed: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(builder: (_) => SettingsScreen(onRestart: widget.onRestart)),
+                                  );
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.bug_report, color: Colors.white),
+                                tooltip: 'Debug',
+                                onPressed: () {
+                                  focusService.debugTimeCalculation();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Đã in debug info vào console'),
+                                      duration: Duration(seconds: 2),
+                                    ),
                                   );
                                 },
                               ),

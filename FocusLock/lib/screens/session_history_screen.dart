@@ -5,6 +5,7 @@ import '../services/focus_service.dart';
 import '../services/statistics_service.dart';
 import '../models/focus_session.dart';
 import '../models/session_history.dart';
+import '../models/session_status.dart';
 import '../utils/constants.dart';
 
 class SessionHistoryScreen extends StatefulWidget {
@@ -37,7 +38,7 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> with Ticker
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: const Text('Lịch sử & Thống kê'),
-        backgroundColor: const Color(AppConstants.primaryColor),
+        backgroundColor: Color(AppConstants.primaryColor),
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -126,6 +127,38 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> with Ticker
               );
             },
             tooltip: 'Auto Cleanup Duplicates',
+          ),
+          IconButton(
+            icon: const Icon(Icons.build),
+            onPressed: () async {
+              // Fix sessions và recalculate statistics
+              final focusService = Provider.of<FocusService>(context, listen: false);
+              final statisticsService = Provider.of<StatisticsService>(context, listen: false);
+              await focusService.fixIncorrectSessions();
+              await statisticsService.fixSessionsAndRecalculate();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Đã fix sessions và recalculate statistics'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            tooltip: 'Fix Sessions & Statistics',
+          ),
+          IconButton(
+            icon: const Icon(Icons.analytics),
+            onPressed: () {
+              // Debug statistics
+              final statisticsService = Provider.of<StatisticsService>(context, listen: false);
+              statisticsService.debugStatistics();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Đã in debug statistics vào console'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            tooltip: 'Debug Statistics',
           ),
         ],
         bottom: TabBar(
@@ -755,7 +788,7 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> with Ticker
               ),
               const SizedBox(width: 16),
               Text(
-                'Thực tế: ${session.calculateActualFocusTime()} phút',
+                'Thực tế: ${_calculateActualFocusMinutes(session)} phút',
                 style: const TextStyle(fontWeight: FontWeight.w500),
               ),
             ],
@@ -1003,5 +1036,14 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> with Ticker
         ],
       ),
     );
+  }
+
+  int _calculateActualFocusMinutes(FocusSession session) {
+    // Tính toán actualFocusMinutes chính xác
+    if (session.status == SessionStatus.completed || session.status == SessionStatus.cancelled) {
+      return session.actualFocusMinutes ?? session.calculateActualFocusTime();
+    } else {
+      return session.calculateActualFocusTime();
+    }
   }
 } 

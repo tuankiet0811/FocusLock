@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/focus_session.dart';
 import '../models/app_info.dart';
 import '../models/session_history.dart';
+import '../models/session_status.dart';
 import '../utils/constants.dart';
 
 class StorageService {
@@ -18,16 +19,31 @@ class StorageService {
 
   // Focus Sessions
   Future<void> saveFocusSessions(List<FocusSession> sessions) async {
+    print('StorageService: saveFocusSessions - saving ${sessions.length} sessions');
     final sessionsJson = sessions.map((session) => session.toJson()).toList();
-    await _prefs.setString(AppConstants.focusSessionsKey, jsonEncode(sessionsJson));
+    final jsonString = jsonEncode(sessionsJson);
+    print('StorageService: saveFocusSessions - json length: ${jsonString.length} chars');
+    await _prefs.setString(AppConstants.focusSessionsKey, jsonString);
+    print('StorageService: saveFocusSessions - completed');
   }
 
   Future<List<FocusSession>> getFocusSessions() async {
     final sessionsString = _prefs.getString(AppConstants.focusSessionsKey);
-    if (sessionsString == null) return [];
+    print('StorageService: getFocusSessions - sessionsString: ${sessionsString != null ? sessionsString.length : 0} chars');
+    if (sessionsString == null) {
+      print('StorageService: getFocusSessions - no data found, returning empty list');
+      return [];
+    }
 
-    final sessionsJson = jsonDecode(sessionsString) as List;
-    return sessionsJson.map((json) => FocusSession.fromJson(json)).toList();
+    try {
+      final sessionsJson = jsonDecode(sessionsString) as List;
+      final sessions = sessionsJson.map((json) => FocusSession.fromJson(json)).toList();
+      print('StorageService: getFocusSessions - loaded ${sessions.length} sessions');
+      return sessions;
+    } catch (e) {
+      print('StorageService: getFocusSessions - error parsing data: $e');
+      return [];
+    }
   }
 
   Future<void> addFocusSession(FocusSession session) async {

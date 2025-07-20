@@ -1,21 +1,26 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import '../models/focus_session.dart';
 import '../models/app_info.dart';
 import '../models/session_history.dart';
+import '../models/session_status.dart';
 import '../utils/helpers.dart';
 import '../utils/constants.dart';
-import 'storage_service.dart';
+import 'hybrid_storage_service.dart';
 import 'notification_service.dart';
 import 'app_blocking_service.dart';
 import 'statistics_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'auth_service.dart'; // Added import for AuthService
+import 'firebase_storage_service.dart'; // Added import for FirebaseStorageService
 
 class FocusService extends ChangeNotifier {
   static final FocusService _instance = FocusService._internal();
   factory FocusService() => _instance;
   FocusService._internal();
 
-  final StorageService _storageService = StorageService();
+  final HybridStorageService _storageService = HybridStorageService();
   final NotificationService _notificationService = NotificationService();
   final AppBlockingService _appBlockingService = AppBlockingService();
   final StatisticsService _statisticsService = StatisticsService();
@@ -39,15 +44,26 @@ class FocusService extends ChangeNotifier {
 
   // Initialize service
   Future<void> init() async {
+    print('FocusService: Bắt đầu khởi tạo...');
+    
     await _storageService.init();
+    print('FocusService: StorageService đã khởi tạo');
+    
     await _notificationService.init();
+    print('FocusService: NotificationService đã khởi tạo');
+    
     await _appBlockingService.init();
+    print('FocusService: AppBlockingService đã khởi tạo');
+    
     await _statisticsService.init();
+    print('FocusService: StatisticsService đã khởi tạo');
     
     _blockedApps = await _storageService.getBlockedApps();
+    print('FocusService: Loaded ${_blockedApps.length} blocked apps');
     
     // If no blocked apps are set, add some default social media apps
     if (_blockedApps.isEmpty) {
+      print('FocusService: No blocked apps found, adding defaults');
       _blockedApps = [
         AppInfo(packageName: 'com.facebook.katana', appName: 'Facebook', isBlocked: true),
         AppInfo(packageName: 'com.instagram.android', appName: 'Instagram', isBlocked: true),
@@ -57,18 +73,78 @@ class FocusService extends ChangeNotifier {
         AppInfo(packageName: 'com.zhiliaoapp.musically', appName: 'TikTok', isBlocked: true),
       ];
       await _storageService.saveBlockedApps(_blockedApps);
+      print('FocusService: Saved default blocked apps');
     }
     
     _sessions = await _storageService.getFocusSessions();
+    print('FocusService: Loaded ${_sessions.length} sessions from storage');
+    
+    // Auto fix sessions nếu cần khi khởi động
+    await _autoFixSessionsIfNeeded();
+    
     await _statisticsService.updateSessions(_sessions);
+    print('FocusService: Updated statistics with ${_sessions.length} sessions');
     
     // Check if there's an active session
     final activeSession = _sessions.where((session) => session.isActive).firstOrNull;
     if (activeSession != null) {
+      print('FocusService: Found active session ${activeSession.id}, resuming...');
       await _resumeSession(activeSession);
+    } else {
+      print('FocusService: No active session found');
+      
+      // Try to restore from timer state as backup
+      await _restoreTimerState();
     }
     
+    print('FocusService: Khởi tạo hoàn tất');
+    
+    // Auto restore connection state
+    await checkAndRestoreConnection();
+    
+    // Restore timer state
+    await _restoreTimerState();
+    
     notifyListeners();
+  }
+
+  // Auto fix sessions nếu cần khi khởi động
+  Future<void> _autoFixSessionsIfNeeded() async {
+    print('FocusService: Kiểm tra và auto fix sessions nếu cần');
+    print('FocusService: Tổng số sessions: ${_sessions.length}');
+    
+    bool hasFixed = false;
+    for (int i = 0; i < _sessions.length; i++) {
+      final session = _sessions[i];
+      print('FocusService: Kiểm tra session ${i + 1}/${_sessions.length} - ID: ${session.id}, Status: ${session.status}');
+      
+      // Chỉ fix các session đã hoàn thành hoặc bị hủy
+      if (session.status == SessionStatus.completed || session.status == SessionStatus.cancelled) {
+        final calculatedActualTime = session.calculateActualFocusTime();
+        print('FocusService: Session ${session.id} - actualFocusMinutes: ${session.actualFocusMinutes}, calculated: $calculatedActualTime');
+        
+        // Kiểm tra nếu actualFocusMinutes không chính xác hoặc null
+        if (session.actualFocusMinutes == null || session.actualFocusMinutes != calculatedActualTime) {
+          print('FocusService: Auto fix session ${session.id} - old: ${session.actualFocusMinutes}, new: $calculatedActualTime');
+          
+          final fixedSession = session.copyWith(
+            actualFocusMinutes: calculatedActualTime,
+          );
+          
+          _sessions[i] = fixedSession;
+          await _storageService.updateFocusSession(fixedSession);
+          hasFixed = true;
+        }
+      }
+    }
+    
+    if (hasFixed) {
+      print('FocusService: Đã auto fix sessions');
+    } else {
+      print('FocusService: Không cần auto fix sessions');
+    }
+    
+    print('FocusService: Kết thúc auto fix - Tổng số sessions: ${_sessions.length}');
   }
 
   // Start a new focus session
@@ -139,6 +215,12 @@ class FocusService extends ChangeNotifier {
     await _storageService.addFocusSession(_currentSession!);
     _sessions.add(_currentSession!);
     await _statisticsService.addSession(_currentSession!);
+    
+    // Auto save timer state
+    await autoSaveTimerState();
+    
+    // Auto save session state immediately
+    await autoSaveSessionState();
 
     // Add history entry
     await _statisticsService.addHistoryEntry(
@@ -178,76 +260,106 @@ class FocusService extends ChangeNotifier {
   // Stop current session
   Future<void> stopSession({bool completed = false, bool silent = false}) async {
     print('FocusService: Bắt đầu stopSession, completed: $completed, silent: $silent');
-    if (_currentSession == null) {
-      print('FocusService: Không có session hiện tại');
-      return;
-    }
-    print('FocusService: Session status: ${_currentSession!.status}');
-
-    _timer?.cancel();
-    _timer = null;
-
-    final now = DateTime.now();
-    final actualFocusMinutes = _currentSession!.calculateActualFocusTime();
-    print('FocusService: stopSession - actualFocusMinutes: $actualFocusMinutes');
-    final status = completed ? SessionStatus.completed : SessionStatus.cancelled;
     
-    // Update session
-    _currentSession = _currentSession!.copyWith(
-      isActive: false,
-      endTime: now,
-      pausedTime: null,
-      remainingSeconds: null,
-      actualFocusMinutes: actualFocusMinutes,
-      status: status,
-      lastActivityTime: now,
-    );
+    try {
+      if (_currentSession == null) {
+        print('FocusService: Không có session hiện tại');
+        return;
+      }
+      
+      print('FocusService: Session status: ${_currentSession!.status}');
 
-    // Update in storage and statistics
-    await _storageService.updateFocusSession(_currentSession!);
-    await _statisticsService.updateSession(_currentSession!);
-    
-    final index = _sessions.indexWhere((session) => session.id == _currentSession!.id);
-    if (index != -1) {
-      _sessions[index] = _currentSession!;
-    }
+      _timer?.cancel();
+      _timer = null;
 
-    // Add history entry only if not silent
-    if (!silent) {
-      await _statisticsService.addHistoryEntry(
-        sessionId: _currentSession!.id,
-        action: completed ? SessionAction.completed : SessionAction.cancelled,
-        data: {
-          'actualFocusMinutes': actualFocusMinutes,
-          'durationMinutes': _currentSession!.durationMinutes,
-          'completionPercentage': _currentSession!.calculateCompletionPercentage(),
-        },
-        note: completed 
-            ? 'Hoàn thành phiên tập trung thành công!'
-            : 'Hủy bỏ phiên tập trung',
+      final now = DateTime.now();
+      
+      // Tính toán actualFocusMinutes chính xác
+      int actualFocusMinutes = 0; // Khởi tạo mặc định
+      if (_currentSession!.status == SessionStatus.completed) {
+        // Nếu session đã completed, sử dụng giá trị đã lưu
+        actualFocusMinutes = _currentSession!.actualFocusMinutes ?? 0;
+      } else {
+        // Tính toán lại actualFocusMinutes
+        actualFocusMinutes = _currentSession!.calculateActualFocusTime();
+      }
+      
+      print('FocusService: stopSession - actualFocusMinutes: $actualFocusMinutes');
+      final status = completed ? SessionStatus.completed : SessionStatus.cancelled;
+      
+      // Update session
+      _currentSession = _currentSession!.copyWith(
+        isActive: false,
+        endTime: now,
+        pausedTime: null,
+        remainingSeconds: null,
+        actualFocusMinutes: actualFocusMinutes,
+        status: status,
+        lastActivityTime: now,
       );
+
+      // Update in storage and statistics
+      await _storageService.updateFocusSession(_currentSession!);
+      await _statisticsService.updateSession(_currentSession!);
+      
+      final index = _sessions.indexWhere((session) => session.id == _currentSession!.id);
+      if (index != -1) {
+        _sessions[index] = _currentSession!;
+      }
+
+      // Add history entry only if not silent
+      if (!silent) {
+        await _statisticsService.addHistoryEntry(
+          sessionId: _currentSession!.id,
+          action: completed ? SessionAction.completed : SessionAction.cancelled,
+          data: {
+            'actualFocusMinutes': actualFocusMinutes,
+            'durationMinutes': _currentSession!.durationMinutes,
+            'completionPercentage': _currentSession!.calculateCompletionPercentage(),
+          },
+          note: completed 
+              ? 'Hoàn thành phiên tập trung thành công!'
+              : 'Hủy bỏ phiên tập trung',
+        );
+      }
+
+      // Stop app blocking
+      await _appBlockingService.stopBlocking();
+
+      // Show notification only if not silent
+      if (!silent) {
+        await _notificationService.showFocusEndNotification(
+          durationMinutes: _currentSession!.durationMinutes,
+          completed: completed,
+          goal: _currentSession!.goal,
+        );
+      }
+
+      _isActive = false;
+      _currentSession = null;
+      _remainingSeconds = 0;
+      _lastSessionId = null; // Reset session ID
+      _lastStartTime = null; // Reset start time
+      
+      // Clear timer state
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('timer_remaining_seconds');
+      await prefs.remove('timer_session_id');
+      await prefs.remove('timer_is_active');
+
+      print('FocusService: Đã hoàn thành stopSession');
+      notifyListeners();
+      
+    } catch (e) {
+      print('FocusService: Lỗi trong stopSession: $e');
+      // Đảm bảo reset state ngay cả khi có lỗi
+      _isActive = false;
+      _currentSession = null;
+      _remainingSeconds = 0;
+      _timer?.cancel();
+      _timer = null;
+      notifyListeners();
     }
-
-    // Stop app blocking
-    await _appBlockingService.stopBlocking();
-
-    // Show notification only if not silent
-    if (!silent) {
-      await _notificationService.showFocusEndNotification(
-        durationMinutes: _currentSession!.durationMinutes,
-        completed: completed,
-        goal: _currentSession!.goal,
-      );
-    }
-
-    _isActive = false;
-    _currentSession = null;
-    _remainingSeconds = 0;
-    _lastSessionId = null; // Reset session ID
-    _lastStartTime = null; // Reset start time
-
-    print('FocusService: Đã hoàn thành stopSession');
-    notifyListeners();
   }
 
   // Pause session
@@ -258,6 +370,10 @@ class FocusService extends ChangeNotifier {
     _timer?.cancel();
     _timer = null;
     _isActive = false;
+    
+    // Tính toán actualFocusMinutes trước khi pause
+    final actualFocusMinutes = _currentSession!.calculateActualFocusTime();
+    print('FocusService: Actual focus minutes before pause: $actualFocusMinutes');
     
     // Create pause history entry
     final pauseEntry = SessionPause(
@@ -273,11 +389,15 @@ class FocusService extends ChangeNotifier {
       remainingSeconds: _remainingSeconds,
       status: SessionStatus.paused,
       pauseHistory: updatedPauseHistory,
+      actualFocusMinutes: actualFocusMinutes, // Cập nhật actualFocusMinutes
       lastActivityTime: now,
     );
     
     await _storageService.updateFocusSession(_currentSession!);
     await _statisticsService.updateSession(_currentSession!);
+    
+    // Auto save timer state
+    await autoSaveTimerState();
     
     // Add history entry
     await _statisticsService.addHistoryEntry(
@@ -285,6 +405,7 @@ class FocusService extends ChangeNotifier {
       action: SessionAction.paused,
       data: {
         'remainingSeconds': _remainingSeconds,
+        'actualFocusMinutes': actualFocusMinutes,
       },
       note: 'Tạm dừng phiên tập trung',
     );
@@ -302,13 +423,12 @@ class FocusService extends ChangeNotifier {
     
     print('FocusService: Resume session - pauseTime: ${_currentSession!.pausedTime}, now: $now');
     
-    // Update last pause entry with resume time and calculate total pause time
+    // Update last pause entry with resume time
     final updatedPauseHistory = List<SessionPause>.from(_currentSession!.pauseHistory);
-    int totalPauseTimeMinutes = _currentSession!.totalPauseTimeMinutes;
     
     if (updatedPauseHistory.isNotEmpty) {
       final lastPause = updatedPauseHistory.last;
-      // Tính thời gian pause chính xác hơn bằng giây rồi chuyển sang phút
+      // Tính thời gian pause chính xác bằng giây
       final pauseDurationSeconds = now.difference(lastPause.pauseTime).inSeconds;
       final pauseDurationMinutes = (pauseDurationSeconds / 60).ceil(); // Làm tròn lên
       print('FocusService: Pause duration: ${pauseDurationSeconds}s = ${pauseDurationMinutes}m');
@@ -319,21 +439,26 @@ class FocusService extends ChangeNotifier {
         durationMinutes: pauseDurationMinutes,
       );
       updatedPauseHistory[updatedPauseHistory.length - 1] = updatedPause;
-      totalPauseTimeMinutes += pauseDurationMinutes;
-      print('FocusService: Total pause time: $totalPauseTimeMinutes minutes');
     }
+    
+    // Tính toán lại actualFocusMinutes trước khi cập nhật session
+    final actualFocusMinutes = _currentSession!.calculateActualFocusTime();
+    print('FocusService: Actual focus minutes after resume: $actualFocusMinutes');
     
     _currentSession = _currentSession!.copyWith(
       pausedTime: null,
       remainingSeconds: null,
       status: SessionStatus.running,
       pauseHistory: updatedPauseHistory,
-      totalPauseTimeMinutes: totalPauseTimeMinutes,
+      actualFocusMinutes: actualFocusMinutes, // Cập nhật actualFocusMinutes
       lastActivityTime: now,
     );
     
     await _storageService.updateFocusSession(_currentSession!);
     await _statisticsService.updateSession(_currentSession!);
+    
+    // Auto save timer state
+    await autoSaveTimerState();
     
     // Add history entry
     await _statisticsService.addHistoryEntry(
@@ -341,6 +466,7 @@ class FocusService extends ChangeNotifier {
       action: SessionAction.resumed,
       data: {
         'remainingSeconds': _remainingSeconds,
+        'actualFocusMinutes': actualFocusMinutes,
       },
       note: 'Tiếp tục phiên tập trung',
     );
@@ -351,6 +477,8 @@ class FocusService extends ChangeNotifier {
 
   // Resume session from storage
   Future<void> _resumeSession(FocusSession session) async {
+    print('FocusService: Resuming session ${session.id} - status: ${session.status}');
+    
     _currentSession = session;
     _isActive = session.isActive;
     
@@ -358,17 +486,23 @@ class FocusService extends ChangeNotifier {
       if (session.status == SessionStatus.paused && session.remainingSeconds != null) {
         // Đang pause, khôi phục đúng trạng thái
         _remainingSeconds = session.remainingSeconds!;
+        print('FocusService: Resumed paused session with ${_remainingSeconds}s remaining');
         // Không chạy timer, chỉ notify để UI hiển thị đúng
         notifyListeners();
       } else if (session.status == SessionStatus.running) {
         final now = DateTime.now();
         final expectedEndTime = session.startTime.add(Duration(minutes: session.durationMinutes));
+        final remainingSeconds = expectedEndTime.difference(now).inSeconds;
+        
+        print('FocusService: Session expected end: $expectedEndTime, now: $now, remaining: ${remainingSeconds}s');
       
-        if (now.isBefore(expectedEndTime)) {
-          _remainingSeconds = expectedEndTime.difference(now).inSeconds;
+        if (remainingSeconds > 0) {
+          _remainingSeconds = remainingSeconds;
+          print('FocusService: Resuming running session with ${_remainingSeconds}s remaining');
           _startTimer();
         } else {
           // Session has expired - sử dụng silent để tránh tạo history entry
+          print('FocusService: Session expired, completing silently');
           await stopSession(completed: true, silent: true);
         }
       }
@@ -377,30 +511,62 @@ class FocusService extends ChangeNotifier {
 
   // Start timer
   void _startTimer() {
-    _timer?.cancel(); // Đảm bảo không có timer cũ chạy song song
+    print('FocusService: Bắt đầu _startTimer');
+    
+    // Đảm bảo không có timer cũ chạy song song
+    _timer?.cancel();
+    
+    if (_currentSession == null || !_isActive) {
+      print('FocusService: Không thể start timer - session null hoặc không active');
+      return;
+    }
+    
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_remainingSeconds > 0) {
-        _remainingSeconds--;
-        
-        // Show motivational notification at certain intervals
-        final percentage = getCompletionPercentage();
-        
-        if (_remainingSeconds % 300 == 0 && _remainingSeconds > 0) { // Every 5 minutes
-          _notificationService.showMotivationalNotification(
-            completionPercentage: percentage,
-            remainingMinutes: _remainingSeconds ~/ 60,
-          );
+      try {
+        if (_remainingSeconds > 0 && _isActive && _currentSession != null) {
+          _remainingSeconds--;
+          
+          // Update session với thời gian còn lại
+          if (_currentSession != null) {
+            _currentSession = _currentSession!.copyWith(
+              remainingSeconds: _remainingSeconds,
+              lastActivityTime: DateTime.now(),
+            );
+          }
+          
+          // Auto save timer state và session state mỗi 10 giây
+          if (_remainingSeconds % 10 == 0) {
+            autoSaveTimerState();
+            autoSaveSessionState();
+          }
+          
+          // Tính phần trăm hoàn thành chính xác
+          final percentage = _currentSession!.calculateCompletionPercentage() * 100;
+          
+          // Update UI
+          notifyListeners();
+          
+          // Log progress mỗi phút
+          if (_remainingSeconds % 60 == 0) {
+            print('FocusService: Timer - ${_remainingSeconds ~/ 60} phút còn lại');
+          }
+        } else {
+          print('FocusService: Timer kết thúc - remainingSeconds: $_remainingSeconds, isActive: $_isActive');
+          timer.cancel();
+          
+          // Kiểm tra xem session có còn tồn tại không trước khi gọi stopSession
+          if (_currentSession != null && _isActive) {
+            print('FocusService: Gọi stopSession từ timer');
+            stopSession(completed: true);
+          }
         }
-        
-        notifyListeners();
-      } else {
+      } catch (e) {
+        print('FocusService: Lỗi trong timer: $e');
         timer.cancel();
-        // Kiểm tra xem session có còn tồn tại không trước khi gọi stopSession
-        if (_currentSession != null && _isActive) {
-          stopSession(completed: true);
-        }
       }
     });
+    
+    print('FocusService: Timer đã được khởi tạo');
   }
 
   // Update blocked apps
@@ -551,6 +717,306 @@ class FocusService extends ChangeNotifier {
     if (recentSessions.length > 1) {
       print('FocusService: Phát hiện ${recentSessions.length} sessions gần đây, cleanup...');
       await cleanupDuplicateSessions();
+    }
+  }
+
+  // Fix sessions với dữ liệu không chính xác
+  Future<void> fixIncorrectSessions() async {
+    print('FocusService: Bắt đầu fix sessions không chính xác');
+    
+    bool hasFixed = false;
+    for (int i = 0; i < _sessions.length; i++) {
+      final session = _sessions[i];
+      final calculatedActualTime = session.calculateActualFocusTime();
+      
+      // Kiểm tra nếu actualFocusMinutes không chính xác
+      if (session.actualFocusMinutes != null && 
+          session.actualFocusMinutes != calculatedActualTime &&
+          (session.status == SessionStatus.completed || session.status == SessionStatus.cancelled)) {
+        
+        print('FocusService: Fix session ${session.id} - old: ${session.actualFocusMinutes}, new: $calculatedActualTime');
+        
+        final fixedSession = session.copyWith(
+          actualFocusMinutes: calculatedActualTime,
+        );
+        
+        _sessions[i] = fixedSession;
+        await _storageService.updateFocusSession(fixedSession);
+        hasFixed = true;
+      }
+    }
+    
+    if (hasFixed) {
+      await _statisticsService.updateSessions(_sessions);
+      notifyListeners();
+      print('FocusService: Đã fix ${_sessions.length} sessions');
+    } else {
+      print('FocusService: Không có session nào cần fix');
+    }
+  }
+
+  // Debug method để kiểm tra logic tính toán
+  void debugTimeCalculation() {
+    if (_currentSession == null) {
+      print('FocusService: Không có session hiện tại để debug');
+      return;
+    }
+    
+    print('=== DEBUG TIME CALCULATION ===');
+    print('Session ID: ${_currentSession!.id}');
+    print('Start Time: ${_currentSession!.startTime}');
+    print('End Time: ${_currentSession!.endTime}');
+    print('Paused Time: ${_currentSession!.pausedTime}');
+    print('Status: ${_currentSession!.status}');
+    print('Duration Minutes: ${_currentSession!.durationMinutes}');
+    print('Actual Focus Minutes: ${_currentSession!.actualFocusMinutes}');
+    print('Total Pause Time Minutes: ${_currentSession!.totalPauseTimeMinutes}');
+    print('Remaining Seconds: ${_currentSession!.remainingSeconds}');
+    print('Pause History Count: ${_currentSession!.pauseHistory.length}');
+    
+    for (int i = 0; i < _currentSession!.pauseHistory.length; i++) {
+      final pause = _currentSession!.pauseHistory[i];
+      print('  Pause $i: ${pause.pauseTime} -> ${pause.resumeTime} (${pause.durationMinutes}m)');
+    }
+    
+    final calculatedActualTime = _currentSession!.calculateActualFocusTime();
+    print('Calculated Actual Focus Time: $calculatedActualTime minutes');
+    print('Completion Percentage: ${_currentSession!.calculateCompletionPercentage() * 100}%');
+    print('==============================');
+  }
+
+  // Check and restore connection state
+  Future<void> checkAndRestoreConnection() async {
+    print('FocusService: Kiểm tra và khôi phục connection state');
+    
+    try {
+      // Kiểm tra xem có session đang active không
+      final activeSession = _sessions.where((session) => session.isActive).firstOrNull;
+      
+      if (activeSession != null) {
+        print('FocusService: Tìm thấy active session, khôi phục...');
+        await _resumeSession(activeSession);
+      } else {
+        print('FocusService: Không có active session');
+        // Đảm bảo state được reset
+        _isActive = false;
+        _currentSession = null;
+        _remainingSeconds = 0;
+        _timer?.cancel();
+        _timer = null;
+      }
+      
+      notifyListeners();
+      print('FocusService: Connection state đã được khôi phục');
+      
+    } catch (e) {
+      print('FocusService: Lỗi khi khôi phục connection: $e');
+      // Reset state nếu có lỗi
+      _isActive = false;
+      _currentSession = null;
+      _remainingSeconds = 0;
+      _timer?.cancel();
+      _timer = null;
+      notifyListeners();
+    }
+  }
+
+  // Debug connection state
+  void debugConnectionState() {
+    print('=== DEBUG CONNECTION STATE ===');
+    print('isActive: $_isActive');
+    print('currentSession: ${_currentSession?.id}');
+    print('remainingSeconds: $_remainingSeconds');
+    print('timer: ${_timer != null ? "active" : "null"}');
+    print('sessions count: ${_sessions.length}');
+    print('active sessions: ${_sessions.where((s) => s.isActive).length}');
+    print('=============================');
+  }
+
+  // Auto save session state
+  Future<void> autoSaveSessionState() async {
+    if (_currentSession != null) {
+      print('FocusService: Auto save session state - ${_currentSession!.id}, remaining: ${_currentSession!.remainingSeconds}s');
+      try {
+        // Cập nhật session với thời gian còn lại hiện tại
+        final updatedSession = _currentSession!.copyWith(
+          remainingSeconds: _remainingSeconds,
+          lastActivityTime: DateTime.now(),
+        );
+        
+        await _storageService.updateFocusSession(updatedSession);
+        _currentSession = updatedSession;
+        
+        // Cập nhật trong danh sách sessions
+        final index = _sessions.indexWhere((s) => s.id == updatedSession.id);
+        if (index != -1) {
+          _sessions[index] = updatedSession;
+        }
+        
+        print('FocusService: Session state đã được lưu');
+      } catch (e) {
+        print('FocusService: Lỗi khi auto save session: $e');
+      }
+    }
+  }
+
+  // Auto save timer state
+  Future<void> autoSaveTimerState() async {
+    if (_currentSession != null && _isActive) {
+      print('FocusService: Auto save timer state - remainingSeconds: $_remainingSeconds');
+      try {
+        // Lưu timer state vào SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('timer_remaining_seconds', _remainingSeconds);
+        await prefs.setString('timer_session_id', _currentSession!.id);
+        await prefs.setBool('timer_is_active', _isActive);
+        print('FocusService: Timer state đã được lưu');
+      } catch (e) {
+        print('FocusService: Lỗi khi auto save timer: $e');
+      }
+    }
+  }
+
+  // Restore timer state
+  Future<void> _restoreTimerState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final sessionId = prefs.getString('timer_session_id');
+      final isActive = prefs.getBool('timer_is_active') ?? false;
+      
+      if (sessionId != null && isActive) {
+        final sessionIndex = _sessions.indexWhere((s) => s.id == sessionId);
+        
+        if (sessionIndex != -1) {
+          final session = _sessions[sessionIndex];
+          
+          if (session.isActive) {
+            print('FocusService: Restore timer state - session: $sessionId');
+            _currentSession = session;
+            _isActive = true;
+            _remainingSeconds = prefs.getInt('timer_remaining_seconds') ?? session.durationSeconds;
+            
+            // Start timer nếu còn thời gian
+            if (_remainingSeconds > 0) {
+              _startTimer();
+            } else {
+              // Session đã kết thúc
+              await stopSession(completed: true);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print('FocusService: Lỗi khi restore timer: $e');
+    }
+  }
+
+
+
+  // Sync to Firebase
+  Future<void> syncToFirebase() async {
+    print('FocusService: Syncing to Firebase...');
+    
+    try {
+      // Check if user is logged in
+      final authService = AuthService();
+      final isLoggedIn = authService.isLoggedIn;
+      
+      if (!isLoggedIn) {
+        print('FocusService: User not logged in, cannot sync to Firebase');
+        return;
+      }
+      
+      // Get local sessions
+      final localSessions = await _storageService.getFocusSessions();
+      print('FocusService: Found ${localSessions.length} local sessions to sync');
+      
+      // Get local history
+      final localHistory = await _storageService.getSessionHistory();
+      print('FocusService: Found ${localHistory.length} local history entries to sync');
+      
+      // Sync to Firebase
+      final firebaseService = FirebaseStorageService();
+      await firebaseService.init();
+      
+      // Sync sessions
+      for (final session in localSessions) {
+        await firebaseService.saveFocusSession(session);
+        print('FocusService: Synced session ${session.id}');
+      }
+      
+      // Sync history
+      for (final entry in localHistory) {
+        await firebaseService.addSessionHistory(entry);
+        print('FocusService: Synced history entry ${entry.id}');
+      }
+      
+      print('FocusService: Sync to Firebase completed successfully!');
+      print('FocusService: Synced ${localSessions.length} sessions and ${localHistory.length} history entries');
+      
+    } catch (e) {
+      print('FocusService: Error syncing to Firebase: $e');
+    }
+  }
+
+
+
+  // Clear user data when logging out
+  Future<void> clearUserData() async {
+    print('FocusService: Clearing user data...');
+    
+    // Stop current session if any
+    if (_isActive || _currentSession != null) {
+      await stopSession(silent: true);
+    }
+    
+    // Clear local data
+    await _storageService.clearAllData();
+    
+    // Reset service state
+    _currentSession = null;
+    _timer?.cancel();
+    _timer = null;
+    _remainingSeconds = 0;
+    _isActive = false;
+    _sessions = [];
+    _blockedApps = [];
+    _isStartingSession = false;
+    _lastSessionId = null;
+    _lastStartTime = null;
+    
+    print('FocusService: User data cleared successfully');
+    notifyListeners();
+  }
+
+  // Load user-specific data when logging in
+  Future<void> loadUserData() async {
+    print('FocusService: Loading user-specific data...');
+    
+    try {
+      // Load user-specific sessions
+      _sessions = await _storageService.getFocusSessions();
+      print('FocusService: Loaded ${_sessions.length} user-specific sessions');
+      
+      // Load user-specific blocked apps
+      _blockedApps = await _storageService.getBlockedApps();
+      print('FocusService: Loaded ${_blockedApps.length} user-specific blocked apps');
+      
+      // Check for active session
+      final activeSession = _sessions.where((session) => session.isActive).firstOrNull;
+      if (activeSession != null) {
+        print('FocusService: Found active session for user, resuming...');
+        await _resumeSession(activeSession);
+      }
+      
+      // Update statistics
+      await _statisticsService.updateSessions(_sessions);
+      
+      print('FocusService: User-specific data loaded successfully');
+      notifyListeners();
+      
+    } catch (e) {
+      print('FocusService: Error loading user data: $e');
     }
   }
 

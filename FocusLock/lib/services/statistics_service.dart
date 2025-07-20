@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/focus_session.dart';
 import '../models/session_history.dart';
+import '../models/session_status.dart';
 import 'storage_service.dart';
 import '../utils/helpers.dart';
 
@@ -33,6 +34,65 @@ class StatisticsService extends ChangeNotifier {
   Future<void> _loadData() async {
     _sessions = await _storageService.getFocusSessions();
     _history = await _storageService.getSessionHistory();
+  }
+
+  // Debug method để kiểm tra statistics
+  void debugStatistics() {
+    print('=== DEBUG STATISTICS ===');
+    print('Total Sessions: ${_sessions.length}');
+    print('Total History Entries: ${_history.length}');
+    
+    if (_currentStatistics != null) {
+      print('Current Statistics:');
+      print('  Total Focus Minutes: ${_currentStatistics!.totalFocusMinutes}');
+      print('  Total Sessions: ${_currentStatistics!.totalSessions}');
+      print('  Completed Sessions: ${_currentStatistics!.completedSessions}');
+      print('  Cancelled Sessions: ${_currentStatistics!.cancelledSessions}');
+      print('  Completion Rate: ${_currentStatistics!.completionRate}');
+      print('  Average Session Length: ${_currentStatistics!.averageSessionLength}');
+    }
+    
+    // Debug sessions
+    for (int i = 0; i < _sessions.length; i++) {
+      final session = _sessions[i];
+      print('Session $i:');
+      print('  ID: ${session.id}');
+      print('  Status: ${session.status}');
+      print('  Duration: ${session.durationMinutes}');
+      print('  Actual Focus: ${session.actualFocusMinutes}');
+      print('  Calculated Actual: ${session.calculateActualFocusTime()}');
+      print('  Pause History: ${session.pauseHistory.length} entries');
+    }
+    
+    print('========================');
+  }
+
+  // Fix sessions và recalculate statistics
+  Future<void> fixSessionsAndRecalculate() async {
+    print('StatisticsService: Bắt đầu fix sessions và recalculate statistics');
+    
+    // Recalculate actualFocusMinutes cho tất cả sessions
+    for (int i = 0; i < _sessions.length; i++) {
+      final session = _sessions[i];
+      final calculatedActualTime = session.calculateActualFocusTime();
+      
+      if (session.actualFocusMinutes != calculatedActualTime) {
+        print('StatisticsService: Fix session ${session.id} - old: ${session.actualFocusMinutes}, new: $calculatedActualTime');
+        
+        final fixedSession = session.copyWith(
+          actualFocusMinutes: calculatedActualTime,
+        );
+        
+        _sessions[i] = fixedSession;
+        await _storageService.updateFocusSession(fixedSession);
+      }
+    }
+    
+    // Recalculate statistics
+    await _calculateStatistics();
+    notifyListeners();
+    
+    print('StatisticsService: Đã fix và recalculate statistics');
   }
 
   // Add session history entry
@@ -103,7 +163,15 @@ class StatisticsService extends ChangeNotifier {
 
     for (final session in _sessions) {
       // Calculate actual focus time
-      final actualFocusTime = session.calculateActualFocusTime();
+      int actualFocusTime = 0; // Khởi tạo mặc định
+      if (session.status == SessionStatus.completed || session.status == SessionStatus.cancelled) {
+        // Sử dụng actualFocusMinutes đã lưu cho các session đã kết thúc
+        actualFocusTime = session.actualFocusMinutes ?? session.calculateActualFocusTime();
+      } else {
+        // Tính toán real-time cho session đang chạy
+        actualFocusTime = session.calculateActualFocusTime();
+      }
+      
       totalFocusMinutes += actualFocusTime;
       totalPauseMinutes += session.totalPauseTimeMinutes;
 
@@ -297,8 +365,10 @@ class StatisticsService extends ChangeNotifier {
 
   // Update sessions list
   Future<void> updateSessions(List<FocusSession> sessions) async {
+    print('StatisticsService: updateSessions - sessions count: ${sessions.length}');
     _sessions = sessions;
     await _calculateStatistics();
+    print('StatisticsService: updateSessions - completed');
     notifyListeners();
   }
 

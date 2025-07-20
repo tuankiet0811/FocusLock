@@ -78,72 +78,31 @@ class _AppsScreenState extends State<AppsScreen> {
     focusService.updateBlockedApps(_allApps);
   }
 
-  void _selectCategory(String category) {
+  void _selectCategory(String category) async {
     setState(() {
       _selectedCategory = category;
-      _filterAppsByCategory(category);
     });
+    
+    await _filterAppsByCategory(category);
+    setState(() {}); // Rebuild UI sau khi filter
   }
 
-  void _filterAppsByCategory(String category) {
-    switch (category) {
-      case 'social':
-        // This part needs to be updated to use AppBlockingService or a new service
-        // For now, it will just filter by package name if AppBlockingService is not ready
-        _filteredApps = _allApps.where((app) => 
-          app.packageName.startsWith('com.facebook') ||
-          app.packageName.startsWith('com.instagram') ||
-          app.packageName.startsWith('com.twitter') ||
-          app.packageName.startsWith('com.threads') ||
-          app.packageName.startsWith('com.snapchat') ||
-          app.packageName.startsWith('com.whatsapp') ||
-          app.packageName.startsWith('com.telegram') ||
-          app.packageName.startsWith('com.discord') ||
-          app.packageName.startsWith('com.reddit') ||
-          app.packageName.startsWith('com.pinterest') ||
-          app.packageName.startsWith('com.linkedin') ||
-          app.packageName.startsWith('com.spotify') ||
-          app.packageName.startsWith('com.netflix') ||
-          app.packageName.startsWith('com.google.android.youtube')
-        ).toList();
-        break;
-      case 'messaging':
-        // This part needs to be updated to use AppBlockingService or a new service
-        _filteredApps = _allApps.where((app) => 
-          app.packageName.startsWith('com.whatsapp') ||
-          app.packageName.startsWith('com.telegram') ||
-          app.packageName.startsWith('com.discord')
-        ).toList();
-        break;
-      case 'video':
-        // This part needs to be updated to use AppBlockingService or a new service
-        _filteredApps = _allApps.where((app) => 
-          app.packageName.startsWith('com.netflix') ||
-          app.packageName.startsWith('com.google.android.youtube')
-        ).toList();
-        break;
-      case 'popular':
-        // This part needs to be updated to use AppBlockingService or a new service
-        _filteredApps = _allApps.where((app) => 
-          app.packageName.startsWith('com.facebook') ||
-          app.packageName.startsWith('com.instagram') ||
-          app.packageName.startsWith('com.twitter') ||
-          app.packageName.startsWith('com.threads') ||
-          app.packageName.startsWith('com.snapchat') ||
-          app.packageName.startsWith('com.whatsapp') ||
-          app.packageName.startsWith('com.telegram') ||
-          app.packageName.startsWith('com.discord') ||
-          app.packageName.startsWith('com.reddit') ||
-          app.packageName.startsWith('com.pinterest') ||
-          app.packageName.startsWith('com.linkedin') ||
-          app.packageName.startsWith('com.spotify') ||
-          app.packageName.startsWith('com.netflix') ||
-          app.packageName.startsWith('com.google.android.youtube')
-        ).toList();
-        break;
-      default:
-        _filteredApps = List.from(_allApps);
-        break;
+  Future<void> _filterAppsByCategory(String category) async {
+    print('AppsScreen: Filtering category: $category, total apps: ${_allApps.length}');
+    
+    if (category == 'all') {
+      _filteredApps = List.from(_allApps);
+      print('AppsScreen: All apps - ${_filteredApps.length} apps');
+    } else {
+      // Sử dụng AppUsageService để phân loại với danh sách thực tế
+      final appUsageService = AppUsageService();
+      _filteredApps = await appUsageService.getAppsByCategory(category, appsList: _allApps);
+      print('AppsScreen: $category category - ${_filteredApps.length} apps');
+      
+      // Debug: In ra tên các app trong danh mục
+      for (final app in _filteredApps) {
+        print('AppsScreen: $category - ${app.appName} (${app.packageName})');
+      }
     }
   }
 
@@ -236,11 +195,27 @@ class _AppsScreenState extends State<AppsScreen> {
                   const SizedBox(width: 8),
                   _buildCategoryButton('social', 'Mạng xã hội', Icons.people),
                   const SizedBox(width: 8),
-                  _buildCategoryButton('messaging', 'Tin nhắn', Icons.message),
+                  _buildCategoryButton('entertainment', 'Giải trí', Icons.movie),
                   const SizedBox(width: 8),
-                  _buildCategoryButton('video', 'Video/Giải trí', Icons.video_library),
+                  _buildCategoryButton('gaming', 'Game', Icons.games),
                   const SizedBox(width: 8),
-                  _buildCategoryButton('popular', 'Phổ biến', Icons.trending_up),
+                  _buildCategoryButton('communication', 'Liên lạc', Icons.message),
+                  const SizedBox(width: 8),
+                  _buildCategoryButton('productivity', 'Làm việc', Icons.work),
+                  const SizedBox(width: 8),
+                  _buildCategoryButton('shopping', 'Mua sắm', Icons.shopping_cart),
+                  const SizedBox(width: 8),
+                  _buildCategoryButton('news', 'Tin tức', Icons.article),
+                  const SizedBox(width: 8),
+                  _buildCategoryButton('education', 'Học tập', Icons.school),
+                  const SizedBox(width: 8),
+                  _buildCategoryButton('finance', 'Tài chính', Icons.account_balance),
+                  const SizedBox(width: 8),
+                  _buildCategoryButton('health', 'Sức khỏe', Icons.favorite),
+                  const SizedBox(width: 8),
+                  _buildCategoryButton('travel', 'Du lịch', Icons.flight),
+                  const SizedBox(width: 8),
+                  _buildCategoryButton('utilities', 'Tiện ích', Icons.build),
                 ],
               ),
             ),
