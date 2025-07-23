@@ -38,7 +38,10 @@ class SettingsScreen extends StatelessWidget {
                       backgroundColor: const Color(0xFF2196F3),
                       child: Text(
                         _getInitials(user?.displayName, user?.email),
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     title: Text(user?.displayName ?? 'Chưa đặt tên'),
@@ -46,7 +49,9 @@ class SettingsScreen extends StatelessWidget {
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => ProfileScreen(onRestart: onRestart)),
+                        MaterialPageRoute(
+                          builder: (_) => ProfileScreen(onRestart: onRestart),
+                        ),
                       );
                     },
                   );
@@ -54,9 +59,9 @@ class SettingsScreen extends StatelessWidget {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // App Settings Section
           _buildSection(
             title: 'Cài đặt ứng dụng',
@@ -82,9 +87,9 @@ class SettingsScreen extends StatelessWidget {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Developer Section
           _buildSection(
             title: 'Nhà phát triển',
@@ -103,9 +108,9 @@ class SettingsScreen extends StatelessWidget {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // About Section
           _buildSection(
             title: 'Thông tin',
@@ -137,17 +142,14 @@ class SettingsScreen extends StatelessWidget {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 32),
-          
+
           // Version Info
           Center(
             child: Text(
               'FocusLock v1.0.0',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 12,
-              ),
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
             ),
           ),
         ],
@@ -196,4 +198,4 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
   }
-} 
+}

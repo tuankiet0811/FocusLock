@@ -527,19 +527,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                                   );
                                 },
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.bug_report, color: Colors.white),
-                                tooltip: 'Debug',
-                                onPressed: () {
-                                  focusService.debugTimeCalculation();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Đã in debug info vào console'),
-                                      duration: Duration(seconds: 2),
-                                    ),
-                                  );
-                                },
-                              ),
+                              // IconButton(
+                              //   icon: const Icon(Icons.bug_report, color: Colors.white),
+                              //   tooltip: 'Debug',
+                              //   onPressed: () {
+                              //     focusService.debugTimeCalculation();
+                              //     ScaffoldMessenger.of(context).showSnackBar(
+                              //       const SnackBar(
+                              //         content: Text('Đã in debug info vào console'),
+                              //         duration: Duration(seconds: 2),
+                              //       ),
+                              //     );
+                              //   },
+                              // ),
                               if (isLoggedIn)
                                 IconButton(
                                   icon: const Icon(Icons.logout, color: Colors.white),
