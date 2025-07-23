@@ -70,6 +70,18 @@ class AppBlockingPlugin: FlutterPlugin, MethodCallHandler {
         val hasPermissions = checkPermissions()
         result.success(hasPermissions)
       }
+      "checkUsageAccessPermission" -> {
+        val hasUsageAccess = checkUsageAccessPermission()
+        result.success(hasUsageAccess)
+      }
+      "checkOverlayPermission" -> {
+        val hasOverlay = checkOverlayPermission()
+        result.success(hasOverlay)
+      }
+      "checkAccessibilityPermission" -> {
+        val hasAccessibility = checkAccessibilityPermission()
+        result.success(hasAccessibility)
+      }
       "getInstalledApps" -> {
         val apps = getInstalledApps()
         result.success(apps)
@@ -301,5 +313,43 @@ class AppBlockingPlugin: FlutterPlugin, MethodCallHandler {
 
   override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
     channel.setMethodCallHandler(null)
+  }
+
+  private fun checkUsageAccessPermission(): Boolean {
+    return try {
+      val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as android.app.usage.UsageStatsManager
+      val currentTime = System.currentTimeMillis()
+      val stats = usageStatsManager.queryUsageStats(
+        android.app.usage.UsageStatsManager.INTERVAL_DAILY,
+        currentTime - 1000 * 60 * 60 * 24,
+        currentTime
+      )
+      stats.isNotEmpty()
+    } catch (e: Exception) {
+      false
+    }
+  }
+
+  private fun checkOverlayPermission(): Boolean {
+    return try {
+      Settings.canDrawOverlays(context)
+    } catch (e: Exception) {
+      false
+    }
+  }
+
+  private fun checkAccessibilityPermission(): Boolean {
+    try {
+      val enabledServices = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+      val colonSplitter = enabledServices?.split(":") ?: return false
+      for (service in colonSplitter) {
+        if (service.contains(context.packageName, ignoreCase = true)) {
+          return true
+        }
+      }
+      return false
+    } catch (e: Exception) {
+      return false
+    }
   }
 } 

@@ -20,6 +20,7 @@ import 'package:android_intent_plus/flag.dart';
 import 'package:flutter/foundation.dart';
 import '../services/storage_service.dart';
 import '../services/hybrid_storage_service.dart';
+import '../services/app_blocking_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onRestart;
@@ -29,16 +30,19 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   int _currentIndex = 0;
+  bool _isDialogShowing = false;
+  String? _currentPermissionDialog; // 'usage', 'overlay', 'accessibility'
 
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -61,8 +65,209 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     ));
     
     _animationController.forward();
-    _checkAndShowPermissionDialog();
+    _checkAndShowPermissionDialogs();
     _checkAndShowFirstTimeDialog();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      _handleDialogOnResume();
+    }
+  }
+
+  // Khi quay lại app, kiểm tra lại quyền đang yêu cầu dialog
+  Future<void> _handleDialogOnResume() async {
+    if (!_isDialogShowing || _currentPermissionDialog == null) {
+      _checkAndShowPermissionDialogs();
+      return;
+    }
+    final appBlockingService = AppBlockingService();
+    bool granted = false;
+    if (_currentPermissionDialog == 'usage') {
+      granted = await appBlockingService.checkUsageAccessPermission();
+    } else if (_currentPermissionDialog == 'overlay') {
+      granted = await appBlockingService.checkOverlayPermission();
+    } else if (_currentPermissionDialog == 'accessibility') {
+      granted = await appBlockingService.checkAccessibilityPermission();
+    }
+    if (granted && mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+      _isDialogShowing = false;
+      _currentPermissionDialog = null;
+      // Đợi dialog đóng xong rồi kiểm tra tiếp quyền khác
+      await Future.delayed(const Duration(milliseconds: 300));
+      _checkAndShowPermissionDialogs();
+    }
+  }
+
+  // Kiểm tra từng quyền và hiện dialog tương ứng nếu thiếu
+  Future<void> _checkAndShowPermissionDialogs() async {
+    final appBlockingService = AppBlockingService();
+    // Kiểm tra Usage Access
+    final hasUsage = await appBlockingService.checkUsageAccessPermission();
+    if (!hasUsage) {
+      // Kiểm tra lại lần cuối trước khi mở dialog
+      final recheck = await appBlockingService.checkUsageAccessPermission();
+      if (!recheck && !_isDialogShowing) {
+        _showUsageAccessDialog();
+      }
+      _currentPermissionDialog = 'usage';
+      return;
+    }
+    // Kiểm tra Overlay
+    final hasOverlay = await appBlockingService.checkOverlayPermission();
+    if (!hasOverlay) {
+      final recheck = await appBlockingService.checkOverlayPermission();
+      if (!recheck && !_isDialogShowing) {
+        _showOverlayDialog();
+      }
+      _currentPermissionDialog = 'overlay';
+      return;
+    }
+    // Kiểm tra Accessibility
+    final hasAccessibility = await appBlockingService.checkAccessibilityPermission();
+    if (!hasAccessibility) {
+      final recheck = await appBlockingService.checkAccessibilityPermission();
+      if (!recheck && !_isDialogShowing) {
+        _showAccessibilityDialog();
+      }
+      _currentPermissionDialog = 'accessibility';
+      return;
+    }
+    // Nếu đã đủ quyền, reset trạng thái dialog
+    _currentPermissionDialog = null;
+    _isDialogShowing = false;
+  }
+
+  // Dialog xin quyền Usage Access
+  void _showUsageAccessDialog() {
+    _isDialogShowing = true;
+    _currentPermissionDialog = 'usage';
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Cấp quyền truy cập sử dụng'),
+        content: const Text(
+          'Để FocusLock hoạt động, bạn cần cấp quyền Truy cập sử dụng (Usage Access).\n\nHãy nhấn vào nút bên dưới để mở cài đặt và cấp quyền cho FocusLock.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              if (!mounted) return;
+              Navigator.of(context).pop();
+              _isDialogShowing = false;
+              _currentPermissionDialog = null;
+            },
+            child: const Text('Để sau'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await AppBlockingService().requestUsageAccessPermission();
+              _waitForPermissionAndClose(_showUsageAccessDialog, AppBlockingService().checkUsageAccessPermission, 'usage');
+            },
+            child: const Text('Cấp quyền'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Dialog xin quyền Overlay
+  void _showOverlayDialog() {
+    _isDialogShowing = true;
+    _currentPermissionDialog = 'overlay';
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Cấp quyền hiển thị trên ứng dụng khác'),
+        content: const Text(
+          'Để FocusLock có thể hiển thị cảnh báo chặn, bạn cần cấp quyền Hiển thị trên ứng dụng khác (Overlay).\n\nHãy nhấn vào nút bên dưới để mở cài đặt và cấp quyền cho FocusLock.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              if (!mounted) return;
+              Navigator.of(context).pop();
+              _isDialogShowing = false;
+              _currentPermissionDialog = null;
+            },
+            child: const Text('Để sau'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await AppBlockingService().requestOverlayPermission();
+              _waitForPermissionAndClose(_showOverlayDialog, AppBlockingService().checkOverlayPermission, 'overlay');
+            },
+            child: const Text('Cấp quyền'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Dialog xin quyền Accessibility
+  void _showAccessibilityDialog() {
+    _isDialogShowing = true;
+    _currentPermissionDialog = 'accessibility';
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Cấp quyền Accessibility Service'),
+        content: const Text(
+          'Để FocusLock hoạt động hiệu quả, bạn cần bật Accessibility Service.\n\nAccessibility Service giúp ứng dụng chặn các app khác một cách hiệu quả hơn.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              if (!mounted) return;
+              Navigator.of(context).pop();
+              _isDialogShowing = false;
+              _currentPermissionDialog = null;
+            },
+            child: const Text('Để sau'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await AppBlockingService().requestAccessibilityPermission();
+              _waitForPermissionAndClose(_showAccessibilityDialog, AppBlockingService().checkAccessibilityPermission, 'accessibility');
+            },
+            child: const Text('⛿ Bật Accessibility Service'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Hàm chờ cấp quyền, nếu đã cấp thì tự động đóng dialog, nếu chưa thì hiện lại dialog
+  void _waitForPermissionAndClose(Function showDialogFunc, Future<bool> Function() checkFunc, String permissionType) async {
+    await Future.delayed(const Duration(seconds: 2));
+    final granted = await checkFunc();
+    if (granted && mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+      _isDialogShowing = false;
+      _currentPermissionDialog = null;
+      // Đợi dialog đóng xong rồi kiểm tra tiếp quyền khác
+      await Future.delayed(const Duration(milliseconds: 300));
+      _checkAndShowPermissionDialogs();
+    } else if (mounted) {
+      // Nếu chưa cấp, hiện lại dialog
+      Navigator.of(context, rootNavigator: true).pop();
+      _isDialogShowing = false;
+      _currentPermissionDialog = permissionType;
+      showDialogFunc();
+    }
   }
 
   Future<void> _checkAndShowPermissionDialog() async {
@@ -208,12 +413,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
   }
 
   @override

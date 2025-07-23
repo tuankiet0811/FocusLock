@@ -4,6 +4,7 @@ import '../services/auth_service.dart';
 import 'package:flutter/services.dart';
 import 'edit_profile_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'change_password_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onRestart;
@@ -438,7 +439,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       label: const Text('Đổi mật khẩu'),
                       onPressed: _isLoading
                           ? null
-                          : () => _changePassword(user.email ?? ''),
+                          : () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const ChangePasswordScreen(),
+                                ),
+                              ),
                     ),
                   ),
                   const SizedBox(height: 16),

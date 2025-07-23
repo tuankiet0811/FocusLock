@@ -89,6 +89,34 @@ class AuthService with ChangeNotifier {
     await _auth.sendPasswordResetEmail(email: email);
   }
 
+  // Đổi mật khẩu với xác thực lại
+  Future<void> changePasswordWithOldPassword(String oldPassword, String newPassword) async {
+    final user = _auth.currentUser;
+    if (user == null || user.email == null) {
+      throw Exception('Không tìm thấy tài khoản. Vui lòng đăng nhập lại.');
+    }
+    try {
+      // Re-authenticate
+      final cred = EmailAuthProvider.credential(email: user.email!, password: oldPassword);
+      await user.reauthenticateWithCredential(cred);
+      // Đổi mật khẩu
+      await user.updatePassword(newPassword);
+      await user.reload();
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'wrong-password') {
+        throw Exception('Mật khẩu cũ không đúng.');
+      } else if (e.code == 'weak-password') {
+        throw Exception('Mật khẩu mới quá yếu.');
+      } else if (e.code == 'requires-recent-login') {
+        throw Exception('Vui lòng đăng nhập lại để đổi mật khẩu.');
+      } else {
+        throw Exception('Lỗi: ${e.message}');
+      }
+    } catch (e) {
+      throw Exception('Lỗi: ${e.toString()}');
+    }
+  }
+
   // Cập nhật thông tin tài khoản
   Future<void> updateProfile({String? displayName, String? email, String? avatarId}) async {
     if (_auth.currentUser != null) {

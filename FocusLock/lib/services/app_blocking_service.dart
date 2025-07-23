@@ -145,6 +145,72 @@ class AppBlockingService {
     }
   }
 
+  // Kiểm tra quyền Usage Access
+  Future<bool> checkUsageAccessPermission() async {
+    try {
+      final result = await _channel.invokeMethod('checkUsageAccessPermission');
+      return result ?? false;
+    } catch (e) {
+      print('Failed to check usage access permission: $e');
+      return false;
+    }
+  }
+
+  // Kiểm tra quyền Overlay
+  Future<bool> checkOverlayPermission() async {
+    try {
+      final result = await _channel.invokeMethod('checkOverlayPermission');
+      return result ?? false;
+    } catch (e) {
+      print('Failed to check overlay permission: $e');
+      return false;
+    }
+  }
+
+  // Kiểm tra quyền Accessibility
+  Future<bool> checkAccessibilityPermission() async {
+    try {
+      final result = await _channel.invokeMethod('checkAccessibilityPermission');
+      return result ?? false;
+    } catch (e) {
+      print('Failed to check accessibility permission: $e');
+      return false;
+    }
+  }
+
+  // Xin quyền Accessibility
+  Future<bool> requestAccessibilityPermission() async {
+    try {
+      final result = await _channel.invokeMethod('requestAccessibilityPermission');
+      return result ?? false;
+    } catch (e) {
+      print('Failed to request accessibility permission: $e');
+      return false;
+    }
+  }
+
+  // Xin quyền Usage Access
+  Future<bool> requestUsageAccessPermission() async {
+    try {
+      final result = await _channel.invokeMethod('requestUsageAccessPermission');
+      return result ?? false;
+    } catch (e) {
+      print('Failed to request usage access permission: $e');
+      return false;
+    }
+  }
+
+  // Xin quyền Overlay
+  Future<bool> requestOverlayPermission() async {
+    try {
+      final result = await _channel.invokeMethod('requestPermissions');
+      return result ?? false;
+    } catch (e) {
+      print('Failed to request overlay permission: $e');
+      return false;
+    }
+  }
+
   // Get list of installed apps
   Future<List<AppInfo>> getInstalledApps() async {
   try {
