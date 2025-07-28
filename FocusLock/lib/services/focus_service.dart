@@ -298,6 +298,9 @@ class FocusService extends ChangeNotifier {
 
       _timer?.cancel();
       _timer = null;
+      
+      // Hủy thông báo liên tục
+      await _notificationService.cancelFocusProgressNotification();
 
       final now = DateTime.now();
       
@@ -379,6 +382,8 @@ class FocusService extends ChangeNotifier {
       
     } catch (e) {
       print('FocusService: Lỗi trong stopSession: $e');
+      // Đảm bảo hủy thông báo ngay cả khi có lỗi
+      await _notificationService.cancelFocusProgressNotification();
       // Đảm bảo reset state ngay cả khi có lỗi
       _isActive = false;
       _currentSession = null;
@@ -548,6 +553,9 @@ class FocusService extends ChangeNotifier {
       return;
     }
     
+    // Hiển thị thông báo liên tục ngay khi bắt đầu
+    _updateProgressNotification();
+    
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       try {
         if (_remainingSeconds > 0 && _isActive && _currentSession != null) {
@@ -561,6 +569,11 @@ class FocusService extends ChangeNotifier {
             );
           }
           
+          // Cập nhật thông báo liên tục mỗi 5 giây
+          if (_remainingSeconds % 5 == 0) {
+            _updateProgressNotification();
+          }
+          
           // Auto save timer state và session state mỗi 10 giây
           if (_remainingSeconds % 10 == 0) {
             autoSaveTimerState();
@@ -569,6 +582,15 @@ class FocusService extends ChangeNotifier {
           
           // Tính phần trăm hoàn thành chính xác
           final percentage = _currentSession!.calculateCompletionPercentage() * 100;
+          
+          // Thông báo động viên mỗi 25% (tùy chọn)
+          if (_remainingSeconds % ((_currentSession!.durationSeconds * 0.25).round()) == 0 && 
+              percentage > 0 && percentage < 100) {
+            _notificationService.showMotivationalNotification(
+              completionPercentage: percentage,
+              remainingMinutes: _remainingSeconds ~/ 60,
+            );
+          }
           
           // Update UI
           notifyListeners();
@@ -580,6 +602,9 @@ class FocusService extends ChangeNotifier {
         } else {
           print('FocusService: Timer kết thúc - remainingSeconds: $_remainingSeconds, isActive: $_isActive');
           timer.cancel();
+          
+          // Hủy thông báo liên tục
+          _notificationService.cancelFocusProgressNotification();
           
           // Kiểm tra xem session có còn tồn tại không trước khi gọi stopSession
           if (_currentSession != null && _isActive) {
@@ -594,6 +619,21 @@ class FocusService extends ChangeNotifier {
     });
     
     print('FocusService: Timer đã được khởi tạo');
+  }
+
+  // Thêm method mới để cập nhật thông báo liên tục
+  Future<void> _updateProgressNotification() async {
+    if (_currentSession == null || !_isActive) return;
+    
+    final remainingMinutes = _remainingSeconds ~/ 60;
+    final completionPercentage = _currentSession!.calculateCompletionPercentage() * 100;
+    
+    await _notificationService.showFocusProgressNotification(
+      remainingMinutes: remainingMinutes,
+      remainingSeconds: _remainingSeconds,
+      completionPercentage: completionPercentage,
+      goal: _currentSession!.goal,
+    );
   }
 
   // Update blocked apps
@@ -1059,4 +1099,4 @@ class FocusService extends ChangeNotifier {
     _timer?.cancel();
     super.dispose();
   }
-} 
+}

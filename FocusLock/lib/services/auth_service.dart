@@ -47,12 +47,21 @@ class AuthService with ChangeNotifier {
   }
 
   // Clear user data when signing out
+  // Clear user data when signing out
+  // Clear user data when signing out
+  // Clear user data when signing out
   Future<void> _clearUserData() async {
     try {
       print('AuthService: Clearing user data...');
-      // Import FocusService here to avoid circular dependency
-      // This will be handled in the UI layer
-      print('AuthService: User data cleared');
+      
+      // KHÔNG xóa avatar - để user giữ avatar khi đăng nhập lại
+      // Avatar sẽ được lưu riêng theo user ID
+      
+      // Chỉ xóa các dữ liệu session tạm thời nếu cần
+      // final prefs = await SharedPreferences.getInstance();
+      // await prefs.remove('temp_session_data'); // ví dụ
+      
+      print('AuthService: User data cleared (avatar preserved)');
     } catch (e) {
       print('AuthService: Error clearing user data: $e');
     }
@@ -148,7 +157,11 @@ class AuthService with ChangeNotifier {
         if (avatarId != null) {
           print('AuthService: Cập nhật avatar ID: $avatarId');
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('user_avatar_id', avatarId);
+          final userId = _auth.currentUser?.uid;
+          if (userId != null) {
+            await prefs.setString('user_avatar_id_$userId', avatarId);
+            print('AuthService: Avatar saved for user: $userId');
+          }
         }
         
         await _auth.currentUser!.reload();
@@ -206,4 +219,4 @@ class AuthService with ChangeNotifier {
   }
 
 
-} 
+}

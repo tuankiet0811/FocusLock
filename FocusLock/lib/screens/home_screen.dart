@@ -38,6 +38,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
   bool _isDialogShowing = false;
   String? _currentPermissionDialog; // 'usage', 'overlay', 'accessibility'
 
+  // Thêm các biến để lưu trạng thái đã hỏi quyền
+  bool _hasAskedUsagePermission = false;
+  bool _hasAskedOverlayPermission = false;
+  bool _hasAskedAccessibilityPermission = false;
 
   @override
   void initState() {
@@ -65,57 +69,32 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     ));
     
     _animationController.forward();
+    _loadPermissionStates(); // Tải trạng thái đã lưu
     _checkAndShowPermissionDialogs();
     _checkAndShowFirstTimeDialog();
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _animationController.dispose();
-    super.dispose();
+  // Tải trạng thái đã hỏi quyền từ SharedPreferences
+  Future<void> _loadPermissionStates() async {
+    final prefs = await SharedPreferences.getInstance();
+    _hasAskedUsagePermission = prefs.getBool('asked_usage_permission') ?? false;
+    _hasAskedOverlayPermission = prefs.getBool('asked_overlay_permission') ?? false;
+    _hasAskedAccessibilityPermission = prefs.getBool('asked_accessibility_permission') ?? false;
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed) {
-      _handleDialogOnResume();
-    }
-  }
-
-  // Khi quay lại app, kiểm tra lại quyền đang yêu cầu dialog
-  Future<void> _handleDialogOnResume() async {
-    if (!_isDialogShowing || _currentPermissionDialog == null) {
-      _checkAndShowPermissionDialogs();
-      return;
-    }
-    final appBlockingService = AppBlockingService();
-    bool granted = false;
-    if (_currentPermissionDialog == 'usage') {
-      granted = await appBlockingService.checkUsageAccessPermission();
-    } else if (_currentPermissionDialog == 'overlay') {
-      granted = await appBlockingService.checkOverlayPermission();
-    } else if (_currentPermissionDialog == 'accessibility') {
-      granted = await appBlockingService.checkAccessibilityPermission();
-    }
-    if (granted && mounted) {
-      Navigator.of(context, rootNavigator: true).pop();
-      _isDialogShowing = false;
-      _currentPermissionDialog = null;
-      // Đợi dialog đóng xong rồi kiểm tra tiếp quyền khác
-      await Future.delayed(const Duration(milliseconds: 300));
-      _checkAndShowPermissionDialogs();
-    }
+  // Lưu trạng thái đã hỏi quyền
+  Future<void> _savePermissionAsked(String permissionType) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('asked_${permissionType}_permission', true);
   }
 
   // Kiểm tra từng quyền và hiện dialog tương ứng nếu thiếu
   Future<void> _checkAndShowPermissionDialogs() async {
     final appBlockingService = AppBlockingService();
+    
     // Kiểm tra Usage Access
     final hasUsage = await appBlockingService.checkUsageAccessPermission();
-    if (!hasUsage) {
-      // Kiểm tra lại lần cuối trước khi mở dialog
+    if (!hasUsage && !_hasAskedUsagePermission) {
       final recheck = await appBlockingService.checkUsageAccessPermission();
       if (!recheck && !_isDialogShowing) {
         _showUsageAccessDialog();
@@ -123,9 +102,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
       _currentPermissionDialog = 'usage';
       return;
     }
+    
     // Kiểm tra Overlay
     final hasOverlay = await appBlockingService.checkOverlayPermission();
-    if (!hasOverlay) {
+    if (!hasOverlay && !_hasAskedOverlayPermission) {
       final recheck = await appBlockingService.checkOverlayPermission();
       if (!recheck && !_isDialogShowing) {
         _showOverlayDialog();
@@ -133,9 +113,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
       _currentPermissionDialog = 'overlay';
       return;
     }
+    
     // Kiểm tra Accessibility
     final hasAccessibility = await appBlockingService.checkAccessibilityPermission();
-    if (!hasAccessibility) {
+    if (!hasAccessibility && !_hasAskedAccessibilityPermission) {
       final recheck = await appBlockingService.checkAccessibilityPermission();
       if (!recheck && !_isDialogShowing) {
         _showAccessibilityDialog();
@@ -143,6 +124,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
       _currentPermissionDialog = 'accessibility';
       return;
     }
+    
     // Nếu đã đủ quyền, reset trạng thái dialog
     _currentPermissionDialog = null;
     _isDialogShowing = false;
@@ -162,8 +144,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
         ),
         actions: [
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               if (!mounted) return;
+              await _savePermissionAsked('usage'); // Lưu trạng thái đã hỏi
+              _hasAskedUsagePermission = true;
               Navigator.of(context).pop();
               _isDialogShowing = false;
               _currentPermissionDialog = null;
@@ -172,6 +156,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           ),
           ElevatedButton(
             onPressed: () async {
+              await _savePermissionAsked('usage'); // Lưu trạng thái đã hỏi
+              _hasAskedUsagePermission = true;
               await AppBlockingService().requestUsageAccessPermission();
               _waitForPermissionAndClose(_showUsageAccessDialog, AppBlockingService().checkUsageAccessPermission, 'usage');
             },
@@ -196,8 +182,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
         ),
         actions: [
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               if (!mounted) return;
+              await _savePermissionAsked('overlay'); // Lưu trạng thái đã hỏi
+              _hasAskedOverlayPermission = true;
               Navigator.of(context).pop();
               _isDialogShowing = false;
               _currentPermissionDialog = null;
@@ -206,6 +194,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           ),
           ElevatedButton(
             onPressed: () async {
+              await _savePermissionAsked('overlay'); // Lưu trạng thái đã hỏi
+              _hasAskedOverlayPermission = true;
               await AppBlockingService().requestOverlayPermission();
               _waitForPermissionAndClose(_showOverlayDialog, AppBlockingService().checkOverlayPermission, 'overlay');
             },
@@ -230,8 +220,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
         ),
         actions: [
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               if (!mounted) return;
+              await _savePermissionAsked('accessibility'); // Lưu trạng thái đã hỏi
+              _hasAskedAccessibilityPermission = true;
               Navigator.of(context).pop();
               _isDialogShowing = false;
               _currentPermissionDialog = null;
@@ -240,6 +232,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           ),
           ElevatedButton(
             onPressed: () async {
+              await _savePermissionAsked('accessibility'); // Lưu trạng thái đã hỏi
+              _hasAskedAccessibilityPermission = true;
               await AppBlockingService().requestAccessibilityPermission();
               _waitForPermissionAndClose(_showAccessibilityDialog, AppBlockingService().checkAccessibilityPermission, 'accessibility');
             },
@@ -768,4 +762,4 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
   }
 
 
-} 
+}

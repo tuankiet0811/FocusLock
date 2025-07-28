@@ -41,7 +41,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Đăng ký thành công! Vui lòng kiểm tra email để xác thực.')),
           );
-          Navigator.of(context).pop(); // Quay lại màn hình trước (thường là login)
+          // Thay đổi: Thay vì Navigator.pop(), ta sẽ pop tất cả và để AuthGate tự động chuyển đến HomeScreen
+          Navigator.of(context).popUntil((route) => route.isFirst);
         }
       } catch (e) {
         setState(() {
@@ -114,4 +115,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
     );
   }
-} 
+}

@@ -1,5 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Thêm import này
 import '../utils/constants.dart';
+import '../utils/helpers.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -7,62 +9,117 @@ class NotificationService {
   NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
+  
+  // Thêm các biến instance bị thiếu
+  bool _isProgressNotificationShown = false;
+  int? _lastProgressPercentage;
 
   Future<void> init() async {
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosSettings = DarwinInitializationSettings();
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
     
     const initSettings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
     );
-
+  
     await _notifications.initialize(initSettings);
+    await _requestNotificationPermission();
     await _createNotificationChannels();
   }
 
+  Future<void> _requestNotificationPermission() async {
+    final androidImplementation = _notifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    
+    if (androidImplementation != null) {
+      final bool? granted = await androidImplementation.requestNotificationsPermission();
+      // Xóa print statement để tránh warning
+      if (granted != null && granted) {
+        // Permission granted
+      }
+    }
+  }
+
   Future<void> _createNotificationChannels() async {
-    // Focus Channel
     const focusChannel = AndroidNotificationChannel(
       AppConstants.focusChannelId,
       'Focus Sessions',
       description: 'Thông báo về phiên tập trung',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
     );
-
-    // App Blocked Channel
+  
     const appBlockedChannel = AndroidNotificationChannel(
       AppConstants.appBlockedChannelId,
       'App Blocked',
       description: 'Thông báo khi ứng dụng bị chặn',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
     );
-
-    await _notifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(focusChannel);
-
-    await _notifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(appBlockedChannel);
+  
+    final androidImplementation = _notifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    
+    if (androidImplementation != null) {
+      await androidImplementation.createNotificationChannel(focusChannel);
+      await androidImplementation.createNotificationChannel(appBlockedChannel);
+    }
   }
 
+  // Thêm method kiểm tra settings
+  Future<bool> _shouldShowNotification() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('notifications_enabled') ?? true;
+  }
+  
+  Future<bool> _shouldPlaySound() async {
+    final prefs = await SharedPreferences.getInstance();
+    final notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
+    final soundEnabled = prefs.getBool('sound_enabled') ?? true;
+    return notificationsEnabled && soundEnabled;
+  }
+  
+  Future<bool> _shouldVibrate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
+    final vibrationEnabled = prefs.getBool('vibration_enabled') ?? true;
+    return notificationsEnabled && vibrationEnabled;
+  }
+  
+  // Cập nhật method showFocusStartNotification
   Future<void> showFocusStartNotification({
     required int durationMinutes,
     String? goal,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
+    // Kiểm tra xem có nên hiển thị thông báo không
+    if (!await _shouldShowNotification()) {
+      return; // Không hiển thị thông báo nếu đã tắt
+    }
+    
+    final shouldPlaySound = await _shouldPlaySound();
+    final shouldVibrate = await _shouldVibrate();
+    
+    final androidDetails = AndroidNotificationDetails(
       AppConstants.focusChannelId,
       'Focus Sessions',
       channelDescription: 'Thông báo về phiên tập trung',
       showWhen: true,
+      playSound: shouldPlaySound,
+      enableVibration: shouldVibrate,
     );
 
-    const iosDetails = DarwinNotificationDetails(
+    final iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
-      presentSound: true,
+      presentSound: shouldPlaySound,
     );
 
-    const details = NotificationDetails(
+    final details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
@@ -76,26 +133,36 @@ class NotificationService {
       details,
     );
   }
-
+  
+  // Cập nhật method showFocusEndNotification
   Future<void> showFocusEndNotification({
     required int durationMinutes,
     required bool completed,
     String? goal,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
+    if (!await _shouldShowNotification()) {
+      return;
+    }
+    
+    final shouldPlaySound = await _shouldPlaySound();
+    final shouldVibrate = await _shouldVibrate();
+    
+    final androidDetails = AndroidNotificationDetails(
       AppConstants.focusChannelId,
       'Focus Sessions',
       channelDescription: 'Thông báo về phiên tập trung',
       showWhen: true,
+      playSound: shouldPlaySound,
+      enableVibration: shouldVibrate,
     );
 
-    const iosDetails = DarwinNotificationDetails(
+    final iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
-      presentSound: true,
+      presentSound: shouldPlaySound,
     );
 
-    const details = NotificationDetails(
+    final details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
@@ -115,25 +182,35 @@ class NotificationService {
       details,
     );
   }
-
+  
+  // Cập nhật method showAppBlockedNotification
   Future<void> showAppBlockedNotification({
     required String appName,
     required int remainingMinutes,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
+    if (!await _shouldShowNotification()) {
+      return;
+    }
+    
+    final shouldPlaySound = await _shouldPlaySound();
+    final shouldVibrate = await _shouldVibrate();
+    
+    final androidDetails = AndroidNotificationDetails(
       AppConstants.appBlockedChannelId,
       'App Blocked',
       channelDescription: 'Thông báo khi ứng dụng bị chặn',
       showWhen: true,
+      playSound: shouldPlaySound,
+      enableVibration: shouldVibrate,
     );
 
-    const iosDetails = DarwinNotificationDetails(
+    final iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: false,
-      presentSound: false,
+      presentSound: shouldPlaySound,
     );
 
-    const details = NotificationDetails(
+    final details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
@@ -145,25 +222,41 @@ class NotificationService {
       details,
     );
   }
+  
+  // Thêm method này để settings_screen.dart có thể gọi
+  Future<void> updateNotificationSettings() async {
+    // Method này có thể để trống hoặc thực hiện logic cập nhật nếu cần
+    // Hiện tại logic kiểm tra settings đã được tích hợp vào từng method riêng
+  }
 
   Future<void> showMotivationalNotification({
     required double completionPercentage,
     required int remainingMinutes,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
+    // Kiểm tra xem có nên hiển thị thông báo không
+    if (!await _shouldShowNotification()) {
+      return;
+    }
+    
+    final shouldPlaySound = await _shouldPlaySound();
+    final shouldVibrate = await _shouldVibrate();
+    
+    final androidDetails = AndroidNotificationDetails(
       AppConstants.focusChannelId,
       'Focus Sessions',
       channelDescription: 'Thông báo về phiên tập trung',
       showWhen: true,
+      playSound: shouldPlaySound,
+      enableVibration: shouldVibrate,
     );
 
-    const iosDetails = DarwinNotificationDetails(
+    final iosDetails = DarwinNotificationDetails(
       presentAlert: false,
       presentBadge: false,
-      presentSound: false,
+      presentSound: shouldPlaySound,
     );
 
-    const details = NotificationDetails(
+    final details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
@@ -202,4 +295,93 @@ class NotificationService {
   Future<void> cancelNotification(int id) async {
     await _notifications.cancel(id);
   }
-} 
+
+  Future<void> showFocusProgressNotification({
+    required int remainingMinutes,
+    required int remainingSeconds,
+    required double completionPercentage,
+    String? goal,
+  }) async {
+    // Kiểm tra xem có nên hiển thị thông báo không
+    if (!await _shouldShowNotification()) {
+      return;
+    }
+    
+    final currentPercentage = completionPercentage.round();
+    
+    // Chỉ hiển thị thông báo khi:
+    // 1. Lần đầu tiên (_isProgressNotificationShown = false)
+    // 2. Hoặc khi % thay đổi đáng kể (mỗi 10%)
+    if (!_isProgressNotificationShown || 
+        (_lastProgressPercentage != null && 
+         (currentPercentage - _lastProgressPercentage!).abs() >= 10)) {
+      
+      final shouldPlaySound = await _shouldPlaySound();
+      final shouldVibrate = await _shouldVibrate();
+      
+      final progressValue = completionPercentage.round();
+      
+      final androidDetails = AndroidNotificationDetails(
+        AppConstants.focusChannelId,
+        'Focus Sessions',
+        channelDescription: 'Thông báo về phiên tập trung',
+        showWhen: false,
+        ongoing: true,
+        autoCancel: false,
+        priority: Priority.low,
+        importance: Importance.low,
+        showProgress: true,
+        maxProgress: 100,
+        progress: progressValue,
+        onlyAlertOnce: true,
+        playSound: shouldPlaySound,
+        enableVibration: shouldVibrate,
+      );
+    
+      final iosDetails = DarwinNotificationDetails(
+        presentAlert: false,
+        presentBadge: false,
+        presentSound: shouldPlaySound,
+      );
+    
+      final details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+    
+      final timeText = remainingMinutes > 0 
+          ? '${remainingMinutes}:${(remainingSeconds % 60).toString().padLeft(2, '0')}'
+          : '${remainingSeconds}s';
+      
+      final title = goal != null 
+          ? '🎯 $goal'
+          : '⏰ Đang tập trung';
+      
+      final body = 'Còn lại: $timeText • ${completionPercentage.round()}% hoàn thành';
+
+      await _notifications.show(
+        AppConstants.focusProgressNotificationId,
+        title,
+        body,
+        details,
+      );
+      
+      // Cập nhật flag và percentage
+      _isProgressNotificationShown = true;
+      _lastProgressPercentage = currentPercentage;
+    }
+  }
+
+  // Method để reset flag khi bắt đầu session mới
+  Future<void> startNewFocusSession() async {
+    _isProgressNotificationShown = false;
+    _lastProgressPercentage = null;
+  }
+
+  // Method hủy thông báo
+  Future<void> cancelFocusProgressNotification() async {
+    await _notifications.cancel(AppConstants.focusProgressNotificationId);
+    _isProgressNotificationShown = false;
+    _lastProgressPercentage = null;
+  }
+}

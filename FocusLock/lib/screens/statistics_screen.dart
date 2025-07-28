@@ -82,11 +82,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
               // App Usage Statistics
               _buildAppUsageStatistics(),
               const SizedBox(height: 24),
-
-              // Blocking Statistics
-              _buildBlockingStatistics(),
-              const SizedBox(height: 24),
-
               // Productivity Score
               _buildProductivityScore(focusService),
             ],
@@ -147,11 +142,24 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
         style: ElevatedButton.styleFrom(
           backgroundColor: isSelected ? const Color(AppConstants.primaryColor) : Colors.grey[200],
           foregroundColor: isSelected ? Colors.white : Colors.grey[700],
+          elevation: isSelected ? 2 : 0,
+          padding: const EdgeInsets.symmetric(vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
+          minimumSize: const Size(0, 44), // Đảm bảo chiều cao tối thiểu
         ),
-        child: Text(label),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
       ),
     );
   }
@@ -371,114 +379,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     );
   }
 
-  Widget _buildBlockingStatistics() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.block,
-                  color: Colors.red,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'Thống kê chặn ứng dụng',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          FutureBuilder<Map<String, dynamic>>(
-            future: _getBlockingStatsForPeriod(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              final blockingStats = snapshot.data ?? {};
-              final blockedApps = blockingStats['blockedApps'] ?? 0;
-              final totalBlockTime = blockingStats['totalBlockTime'] ?? Duration.zero;
-              final blockAttempts = blockingStats['blockAttempts'] ?? 0;
-
-              return Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStatCard(
-                          'Ứng dụng bị chặn',
-                          blockedApps.toString(),
-                          Icons.block,
-                          Colors.red,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildStatCard(
-                          'Thời gian chặn',
-                          _formatDuration(totalBlockTime),
-                          Icons.timer_off,
-                          Colors.orange,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStatCard(
-                          'Lần chặn',
-                          blockAttempts.toString(),
-                          Icons.security,
-                          Colors.purple,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildStatCard(
-                          'Hiệu quả',
-                          '${_calculateBlockingEfficiency(blockAttempts, blockedApps)}%',
-                          Icons.check_circle,
-                          Colors.green,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
+ 
   Widget _buildProductivityScore(FocusService focusService) {
     final sessions = _getSessionsForPeriod(focusService);
     final productivityScore = _calculateProductivityScore(sessions);
@@ -820,10 +721,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     return await appUsageService.getAppUsageForPeriod(_selectedPeriod);
   }
 
-  Future<Map<String, dynamic>> _getBlockingStatsForPeriod() async {
-    final appBlockingService = AppBlockingService();
-    return await appBlockingService.getBlockingStatsForPeriod(_selectedPeriod);
-  }
+  // ❌ XÓA HOÀN TOÀN method _getBlockingStatsForPeriod()
+  // Future<Map<String, dynamic>> _getBlockingStatsForPeriod() async {
+  //   final appBlockingService = AppBlockingService();
+  //   return await appBlockingService.getBlockingStatsForPeriod(_selectedPeriod);
+  // }
 
   String _formatDuration(Duration duration) {
     final hours = duration.inHours;
@@ -887,10 +789,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     return (totalActualMinutes / sessions.length).round().toInt();
   }
 
-  int _calculateBlockingEfficiency(int attempts, int blocked) {
-    if (attempts == 0) return 0;
-    return ((blocked / attempts) * 100).round().toInt();
-  }
+  // ❌ XÓA HOÀN TOÀN method _calculateBlockingEfficiency()
+  // int _calculateBlockingEfficiency(int attempts, int blocked) {
+  //   if (attempts == 0) return 0;
+  //   return ((blocked / attempts) * 100).round().toInt();
+  // }
 
   String _getProductivityMessage(int score) {
     if (score >= 90) return 'Xuất sắc!';
@@ -915,4 +818,4 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     if (actualTime <= 0 || session.durationMinutes <= 0) return 0;
     return ((actualTime / session.durationMinutes) * 100).round().toInt();
   }
-} 
+}

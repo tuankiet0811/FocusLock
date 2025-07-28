@@ -41,10 +41,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final user = authService.currentUser;
     if (user != null) {
       _displayNameController.text = user.displayName ?? '';
-      // Load avatar từ SharedPreferences
+      // Load avatar từ SharedPreferences theo user ID
       final prefs = await SharedPreferences.getInstance();
+      final userId = user.uid;
+      final avatarId = prefs.getString('user_avatar_id_$userId') ?? 'default';
+      
+      // Debug logs
+      print('EditProfile: Loading avatar for user: $userId');
+      print('EditProfile: Loaded avatar ID: $avatarId');
+      print('EditProfile: All SharedPreferences keys: ${prefs.getKeys()}');
+      
       setState(() {
-        _selectedAvatar = prefs.getString('user_avatar_id') ?? 'default';
+        _selectedAvatar = avatarId;
       });
     }
   }
@@ -267,4 +275,4 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
     );
   }
-} 
+}

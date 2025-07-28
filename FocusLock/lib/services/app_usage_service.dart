@@ -2,11 +2,15 @@ import '../models/app_info.dart';
 import '../utils/constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
 
 class AppUsageService {
   static final AppUsageService _instance = AppUsageService._internal();
   factory AppUsageService() => _instance;
   AppUsageService._internal();
+
+  // Method channel for native communication
+  static const MethodChannel _channel = MethodChannel('app_blocking');
 
   // Get default blocked apps
   Future<List<AppInfo>> getDefaultBlockedApps() async {
@@ -449,46 +453,77 @@ class AppUsageService {
   }
 
   // Get app usage statistics for a specific period
+  // Thay thế method getAppUsageForPeriod
   Future<Map<String, Duration>> getAppUsageForPeriod(String period) async {
-    final prefs = await SharedPreferences.getInstance();
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    try {
+    // Gọi native method để lấy usage stats thực tế
+    final result = await _channel.invokeMethod('getAppUsageStats', {
+      'period': period,
+    });
     
-    // Mock data for demonstration - in real app, this would come from system usage stats
-    final mockUsageData = {
-      'today': {
-        'Facebook': const Duration(minutes: 45),
-        'Instagram': const Duration(minutes: 30),
-        'YouTube': const Duration(minutes: 60),
-        'TikTok': const Duration(minutes: 25),
-        'WhatsApp': const Duration(minutes: 20),
-        'Gmail': const Duration(minutes: 15),
-      },
-      'week': {
-        'Facebook': const Duration(hours: 3, minutes: 30),
-        'Instagram': const Duration(hours: 2, minutes: 15),
-        'YouTube': const Duration(hours: 4, minutes: 45),
-        'TikTok': const Duration(hours: 1, minutes: 50),
-        'WhatsApp': const Duration(hours: 1, minutes: 30),
-        'Gmail': const Duration(minutes: 45),
-        'Spotify': const Duration(hours: 2, minutes: 20),
-        'Netflix': const Duration(hours: 1, minutes: 15),
-      },
-      'month': {
-        'Facebook': const Duration(hours: 12, minutes: 30),
-        'Instagram': const Duration(hours: 8, minutes: 45),
-        'YouTube': const Duration(hours: 15, minutes: 20),
-        'TikTok': const Duration(hours: 6, minutes: 15),
-        'WhatsApp': const Duration(hours: 5, minutes: 30),
-        'Gmail': const Duration(hours: 2, minutes: 15),
-        'Spotify': const Duration(hours: 8, minutes: 45),
-        'Netflix': const Duration(hours: 4, minutes: 30),
-        'Discord': const Duration(hours: 3, minutes: 20),
-        'Reddit': const Duration(hours: 2, minutes: 15),
-      },
-    };
-
-    return Map<String, Duration>.from(mockUsageData[period] ?? {});
+    if (result != null && result is Map) {
+      final Map<String, Duration> usageData = {};
+      result.forEach((key, value) {
+        if (value is int) {
+          usageData[key] = Duration(milliseconds: value);
+        }
+      });
+      return usageData;
+    }
+  } catch (e) {
+    print('Failed to get real usage stats: $e');
   }
+  
+  // Fallback to mock data if native call fails
+  return _getMockUsageData(period);
+}
+
+// Tách mock data thành method riêng
+Map<String, Duration> _getMockUsageData(String period) {
+  final mockUsageData = {
+    'today': {
+      'Facebook': const Duration(minutes: 45),
+      'Instagram': const Duration(minutes: 30),
+      'YouTube': const Duration(minutes: 60),
+      'TikTok': const Duration(minutes: 25),
+      'WhatsApp': const Duration(minutes: 20),
+      'Gmail': const Duration(minutes: 15),
+    },
+    'week': {
+      'Facebook': const Duration(hours: 3, minutes: 30),
+      'Instagram': const Duration(hours: 2, minutes: 15),
+      'YouTube': const Duration(hours: 4, minutes: 45),
+      'TikTok': const Duration(hours: 1, minutes: 50),
+      'WhatsApp': const Duration(hours: 1, minutes: 30),
+      'Gmail': const Duration(minutes: 45),
+      'Spotify': const Duration(hours: 2, minutes: 20),
+      'Netflix': const Duration(hours: 1, minutes: 15),
+    },
+    'month': {
+      'Facebook': const Duration(hours: 12, minutes: 30),
+      'Instagram': const Duration(hours: 8, minutes: 45),
+      'YouTube': const Duration(hours: 15, minutes: 20),
+      'TikTok': const Duration(hours: 6, minutes: 15),
+      'WhatsApp': const Duration(hours: 5, minutes: 30),
+      'Gmail': const Duration(hours: 2, minutes: 15),
+      'Spotify': const Duration(hours: 8, minutes: 45),
+      'Netflix': const Duration(hours: 4, minutes: 30),
+      'Discord': const Duration(hours: 3, minutes: 20),
+      'Reddit': const Duration(hours: 2, minutes: 15),
+    },
+  };
+  return Map<String, Duration>.from(mockUsageData[period] ?? {});
+}
+
+// Thêm method để lưu usage data thực tế
+Future<void> trackAppUsage(String packageName, int durationMs) async {
+  final prefs = await SharedPreferences.getInstance();
+  final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  final key = 'real_usage_${today}_$packageName';
+  
+  final existingUsage = prefs.getInt(key) ?? 0;
+  await prefs.setInt(key, existingUsage + durationMs);
+}
 
   // Get app usage by category for a period
   Future<Map<String, Duration>> getAppUsageByCategory(String period, String category) async {
@@ -587,4 +622,4 @@ class AppUsageService {
     }
     return null;
   }
-} 
+}

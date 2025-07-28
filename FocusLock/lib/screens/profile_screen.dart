@@ -19,6 +19,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _emailVerificationCooldown = false;
   String? _message;
   static const platform = MethodChannel('focuslock/app_blocking');
+  Key _avatarKey = UniqueKey(); // Thêm key để force rebuild
 
   @override
   void initState() {
@@ -39,7 +40,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // Nếu chưa đủ 60 giây kể từ lần gửi email cuối
     if (timeDiff < 60000) {
-      // 60 giây = 60000 milliseconds
       setState(() {
         _emailVerificationCooldown = true;
       });
@@ -59,58 +59,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _refreshUserInfo() async {
-    setState(() {
-      _isLoading = true;
-      _message = null;
-    });
-
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       await authService.reloadUser();
-
+      
+      // Force rebuild avatar FutureBuilder
       setState(() {
-        _message = 'Đã cập nhật thông tin tài khoản';
+        _avatarKey = UniqueKey();
       });
-
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Đã cập nhật thông tin tài khoản'),
+            content: Text('Đã làm mới thông tin tài khoản'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
-      setState(() {
-        _message = 'Lỗi khi cập nhật: ${e.toString()}';
-      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi khi làm mới: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
-
-    setState(() {
-      _isLoading = false;
-    });
-  }
-
-  Future<void> _changePassword(String email) async {
-    setState(() {
-      _isLoading = true;
-      _message = null;
-    });
-    try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      await authService.sendPasswordResetEmail(email);
-      setState(() {
-        _message = 'Đã gửi email đổi mật khẩu đến $email';
-      });
-    } catch (e) {
-      setState(() {
-        _message = 'Lỗi: ${e.toString()}';
-      });
-    }
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   String _getInitials(String? displayName, String? email) {
@@ -119,33 +94,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return text.substring(0, 1).toUpperCase();
   }
 
-  // Lấy thông tin avatar từ SharedPreferences
+  // Lấy thông tin avatar từ SharedPreferences theo user ID với debug
   Future<String> _getUserAvatar() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('user_avatar_id') ?? 'default';
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final user = authService.currentUser;
+      if (user != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final userId = user.uid;
+        
+        // Debug logs chi tiết
+        print('ProfileScreen: Getting avatar for user: $userId');
+        print('ProfileScreen: All SharedPreferences keys: ${prefs.getKeys()}');
+        
+        // Kiểm tra tất cả keys có chứa user ID
+        final allKeys = prefs.getKeys();
+        final userKeys = allKeys.where((key) => key.contains(userId)).toList();
+        print('ProfileScreen: Keys containing user ID: $userKeys');
+        
+        final avatarId = prefs.getString('user_avatar_id_$userId') ?? 'default';
+        print('ProfileScreen: Retrieved avatar ID: $avatarId');
+        
+        // Kiểm tra trực tiếp key cụ thể
+        final specificKey = 'user_avatar_id_$userId';
+        final hasKey = prefs.containsKey(specificKey);
+        print('ProfileScreen: Key \"$specificKey\" exists: $hasKey');
+        
+        print('ProfileScreen: Found avatar: $avatarId for user: $userId');
+        return avatarId;
+      }
+      
+      print('ProfileScreen: No user found, returning default avatar');
+      return 'default';
+    } catch (e) {
+      print('ProfileScreen: Error getting avatar: $e');
+      return 'default';
+    }
   }
+
+  // Danh sách avatar có sẵn (giống như trong edit_profile_screen.dart)
+  final List<Map<String, dynamic>> _avatars = [
+    {'id': 'default', 'icon': Icons.person, 'color': Colors.blue, 'name': 'Mặc định'},
+    {'id': 'user1', 'icon': Icons.face, 'color': Colors.green, 'name': 'Mặt cười'},
+    {'id': 'user2', 'icon': Icons.person_outline, 'color': Colors.purple, 'name': 'Người dùng'},
+    {'id': 'user3', 'icon': Icons.account_circle, 'color': Colors.orange, 'name': 'Tài khoản'},
+    {'id': 'user4', 'icon': Icons.supervised_user_circle, 'color': Colors.teal, 'name': 'Quản lý'},
+    {'id': 'user5', 'icon': Icons.verified_user, 'color': Colors.indigo, 'name': 'Xác thực'},
+    {'id': 'user6', 'icon': Icons.psychology, 'color': Colors.pink, 'name': 'Thông minh'},
+    {'id': 'user7', 'icon': Icons.sports_esports, 'color': Colors.red, 'name': 'Game'},
+    {'id': 'user8', 'icon': Icons.work, 'color': Colors.brown, 'name': 'Công việc'},
+  ];
 
   // Lấy thông tin avatar để hiển thị
   Widget _buildUserAvatar(String avatarId) {
-    // Danh sách avatar tương tự như trong edit profile
-    final Map<String, Map<String, dynamic>> avatars = {
-      'default': {'icon': Icons.person, 'color': Colors.blue},
-      'user1': {'icon': Icons.face, 'color': Colors.green},
-      'user2': {'icon': Icons.person_outline, 'color': Colors.purple},
-      'user3': {'icon': Icons.account_circle, 'color': Colors.orange},
-      'user4': {'icon': Icons.supervised_user_circle, 'color': Colors.teal},
-      'user5': {'icon': Icons.verified_user, 'color': Colors.indigo},
-      'user6': {'icon': Icons.psychology, 'color': Colors.pink},
-      'user7': {'icon': Icons.sports_esports, 'color': Colors.red},
-      'user8': {'icon': Icons.work, 'color': Colors.brown},
-    };
-
-    final avatar = avatars[avatarId] ?? avatars['default']!;
-
+    // Tìm avatar trong danh sách
+    final avatar = _avatars.firstWhere(
+      (a) => a['id'] == avatarId,
+      orElse: () => _avatars[0], // default avatar nếu không tìm thấy
+    );
+    
     return CircleAvatar(
-      radius: 32,
+      radius: 50,
       backgroundColor: avatar['color'],
-      child: Icon(avatar['icon'], color: Colors.white, size: 32),
+      child: Icon(
+        avatar['icon'],
+        color: Colors.white,
+        size: 50,
+      ),
     );
   }
 
@@ -251,25 +266,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Future<void> _requestOverlayPermission() async {
-  //   try {
-  //     final bool result = await platform.invokeMethod('requestPermissions');
-  //     if (result) {
-  //       setState(() {
-  //         _message = 'Đã mở trang cấp quyền hiển thị trên ứng dụng khác.';
-  //       });
-  //     } else {
-  //       setState(() {
-  //         _message = 'Không thể mở trang cấp quyền. Vui lòng kiểm tra cài đặt.';
-  //       });
-  //     }
-  //   } catch (e) {
-  //     setState(() {
-  //       _message = 'Lỗi khi xin quyền overlay: \n${e.toString()}';
-  //     });
-  //   }
-  // }
-
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
@@ -284,6 +280,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   FutureBuilder<String>(
+                    key: _avatarKey, // Thêm key để force rebuild
                     future: _getUserAvatar(),
                     builder: (context, snapshot) {
                       final avatarId = snapshot.data ?? 'default';
@@ -367,7 +364,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     },
                   ),
                   const SizedBox(height: 32),
-                  // Thông tin bổ sung về tài khoản (Moved up)
+                  // Thông tin bổ sung về tài khoản
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
@@ -447,12 +444,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           label: const Text('Chỉnh sửa thông tin'),
                           onPressed: _isLoading
                               ? null
-                              : () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const EditProfileScreen(),
-                                  ),
-                                ),
+                              : () async {
+                                  final result = await Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => const EditProfileScreen(),
+                                    ),
+                                  );
+                                  // Refresh avatar sau khi quay về từ EditProfile
+                                  if (result == true) {
+                                    setState(() {
+                                      _avatarKey = UniqueKey();
+                                    });
+                                  }
+                                },
                         ),
                       ),
                       const SizedBox(width: 12),

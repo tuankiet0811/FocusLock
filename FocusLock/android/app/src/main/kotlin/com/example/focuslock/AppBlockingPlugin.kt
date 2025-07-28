@@ -2,6 +2,7 @@ package com.example.focuslock
 
 import android.app.ActivityManager
 import android.app.AlertDialog
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -15,6 +16,7 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
+import java.util.Calendar
 
 class AppBlockingPlugin: FlutterPlugin, MethodCallHandler {
   private lateinit var channel : MethodChannel
@@ -90,6 +92,9 @@ class AppBlockingPlugin: FlutterPlugin, MethodCallHandler {
         val debugInfo = debugCurrentApp()
         result.success(debugInfo)
       }
+      "getAppUsageStats" -> {
+        getAppUsageStats(call, result)
+      }
       "requestUsageAccessPermission" -> {
         try {
           val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
@@ -127,6 +132,14 @@ class AppBlockingPlugin: FlutterPlugin, MethodCallHandler {
 
   private fun stopBlocking() {
     isBlockingActive = false
+    
+    // ❌ XÓA: Code gọi removeBlockingOverlay
+    // try {
+    //     channel.invokeMethod("removeBlockingOverlay", null)
+    // } catch (e: Exception) {
+    //     println("AppBlockingPlugin: Failed to call removeBlockingOverlay: ${e.message}")
+    // }
+    
     blockedApps.clear()
     
     // Stop overlay service
@@ -136,7 +149,7 @@ class AppBlockingPlugin: FlutterPlugin, MethodCallHandler {
     
     // Stop accessibility service
     FocusLockAccessibilityService.setBlockingActive(false)
-  }
+}
 
   private fun getCurrentApp(): String? {
     try {
@@ -352,4 +365,65 @@ class AppBlockingPlugin: FlutterPlugin, MethodCallHandler {
       return false
     }
   }
-} 
+
+  private fun getAppUsageStats(call: MethodCall, result: Result) {
+      val period = call.argument<String>("period") ?: "today"
+      val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+      
+      val calendar = Calendar.getInstance()
+      val endTime = calendar.timeInMillis
+      
+      val startTime = when (period) {
+          "today" -> {
+              calendar.set(Calendar.HOUR_OF_DAY, 0)
+              calendar.set(Calendar.MINUTE, 0)
+              calendar.set(Calendar.SECOND, 0)
+              calendar.set(Calendar.MILLISECOND, 0)
+              calendar.timeInMillis
+          }
+          "week" -> {
+              calendar.add(Calendar.DAY_OF_YEAR, -7)
+              calendar.timeInMillis
+          }
+          "month" -> {
+              calendar.add(Calendar.MONTH, -1)
+              calendar.timeInMillis
+          }
+          else -> endTime - (24 * 60 * 60 * 1000) // Default to today
+      }
+      
+      try {
+          val usageStats = usageStatsManager.queryUsageStats(
+              UsageStatsManager.INTERVAL_DAILY,
+              startTime,
+              endTime
+          )
+          
+          val usageMap = mutableMapOf<String, Long>()
+          
+          for (usageStat in usageStats) {
+              val packageName = usageStat.packageName
+              val totalTime = usageStat.totalTimeInForeground
+              
+              if (totalTime > 0) {
+                  // Lấy tên app thực tế
+                  val appName = getAppName(packageName) ?: packageName
+                  usageMap[appName] = totalTime
+              }
+          }
+          
+          result.success(usageMap)
+      } catch (e: Exception) {
+          result.error("USAGE_STATS_ERROR", "Failed to get usage stats: ${e.message}", null)
+      }
+  }
+
+  private fun getAppName(packageName: String): String? {
+      return try {
+          val applicationInfo = packageManager.getApplicationInfo(packageName, 0)
+          packageManager.getApplicationLabel(applicationInfo).toString()
+      } catch (e: Exception) {
+          null
+      }
+  }
+}

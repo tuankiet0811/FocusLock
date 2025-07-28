@@ -69,7 +69,12 @@ dependencies:
   firebase_core: ^2.32.0
   firebase_auth: ^4.17.8
   cloud_firestore: ^4.17.5
-
+  
+  # Google Fonts for beautiful typography
+  google_fonts: ^6.1.0
+  
+  # Material Design Icons
+  material_design_icons_flutter: ^7.0.7296
 dev_dependencies:
   flutter_test:
     sdk: flutter

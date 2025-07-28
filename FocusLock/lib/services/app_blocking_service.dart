@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import '../models/app_info.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,7 +15,9 @@ class AppBlockingService {
   List<AppInfo> _blockedApps = [];
   bool _isActive = false;
   Timer? _checkTimer;
+  final Map<String, DateTime> _blockStartTimes = {};
 
+  
   // Initialize the service
   Future<void> init() async {
     try {
@@ -213,20 +216,19 @@ class AppBlockingService {
 
   // Get list of installed apps
   Future<List<AppInfo>> getInstalledApps() async {
-  try {
-    final result = await _channel.invokeMethod('getInstalledApps');
-    if (result is List) {
-      // Sửa đoạn này:
-      return result
-          .map((app) => AppInfo.fromJson(Map<String, dynamic>.from(app)))
-          .toList();
+    try {
+      final result = await _channel.invokeMethod('getInstalledApps');
+      if (result is List) {
+        return result
+            .map((app) => AppInfo.fromJson(Map<String, dynamic>.from(app)))
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      print('Failed to get installed apps: $e');
+      return [];
     }
-    return [];
-  } catch (e) {
-    print('Failed to get installed apps: $e');
-    return [];
   }
-}
 
   // Get current app (for debug purposes)
   Future<String?> getCurrentApp() async {
@@ -250,140 +252,151 @@ class AppBlockingService {
     }
   }
 
+  // Cập nhật method showBlockingOverlay
+  Future<void> showBlockingOverlay(String packageName) async {
+    try {
+      final startTime = DateTime.now();
+      
+      await _channel.invokeMethod('showBlockingOverlay', {
+        'packageName': packageName,
+      });
+      
+      // Ghi lại thời điểm bắt đầu
+      _blockStartTimes[packageName] = startTime;
+      
+    } catch (e) {
+      print('Failed to show blocking overlay: $e');
+      // Ghi lại attempt thất bại
+      await recordBlockingAttempt(packageName, false, Duration.zero);
+    }
+  }
+
+  // Method removeBlockingOverlay
+  Future<void> removeBlockingOverlay() async {
+    try {
+      await _channel.invokeMethod('removeBlockingOverlay');
+      
+      // Tính thời gian chặn và ghi nhận
+      final now = DateTime.now();
+      for (final entry in _blockStartTimes.entries) {
+        final packageName = entry.key;
+        final startTime = entry.value;
+        final blockDuration = now.difference(startTime);
+        
+        // Ghi nhận với thời gian thực tế
+        await recordBlockingAttempt(packageName, true, blockDuration);
+      }
+      
+      _blockStartTimes.clear();
+    } catch (e) {
+      print('Failed to remove blocking overlay: $e');
+    }
+  }
+
+  // Record blocking attempt
+  Future<void> recordBlockingAttempt(String packageName, bool wasBlocked, Duration blockDuration) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      
+      // Lưu thống kê chặn ứng dụng
+      final key = 'blocking_stats_$today';
+      final existingData = prefs.getString(key);
+      Map<String, dynamic> stats = {};
+      
+      if (existingData != null) {
+        stats = Map<String, dynamic>.from(jsonDecode(existingData));
+      }
+      
+      if (!stats.containsKey(packageName)) {
+        stats[packageName] = {
+          'attempts': 0,
+          'blocked': 0,
+          'totalBlockTime': 0,
+        };
+      }
+      
+      stats[packageName]['attempts'] += 1;
+      if (wasBlocked) {
+        stats[packageName]['blocked'] += 1;
+        stats[packageName]['totalBlockTime'] += blockDuration.inSeconds;
+      }
+      
+      await prefs.setString(key, jsonEncode(stats));
+    } catch (e) {
+      print('Failed to record blocking attempt: $e');
+    }
+  }
+
+  // Get blocking stats for period
+  Future<Map<String, dynamic>> getBlockingStatsForPeriod(String period) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.now();
+      
+      List<DateTime> dates = [];
+      
+      switch (period) {
+        case 'today':
+          dates = [now];
+          break;
+        case 'week':
+          for (int i = 0; i < 7; i++) {
+            dates.add(now.subtract(Duration(days: i)));
+          }
+          break;
+        case 'month':
+          for (int i = 0; i < 30; i++) {
+            dates.add(now.subtract(Duration(days: i)));
+          }
+          break;
+      }
+      
+      int totalAttempts = 0;
+      int totalBlocked = 0;
+      int totalBlockTime = 0;
+      Map<String, int> appAttempts = {};
+      
+      for (final date in dates) {
+        final key = 'blocking_stats_${DateFormat('yyyy-MM-dd').format(date)}';
+        final data = prefs.getString(key);
+        
+        if (data != null) {
+          final stats = Map<String, dynamic>.from(jsonDecode(data));
+          
+          for (final entry in stats.entries) {
+            final packageName = entry.key;
+            final appStats = entry.value;
+            
+            totalAttempts += (appStats['attempts'] as int? ?? 0);
+            totalBlocked += (appStats['blocked'] as int? ?? 0);
+            totalBlockTime += (appStats['totalBlockTime'] as int? ?? 0);
+            
+            appAttempts[packageName] = (appAttempts[packageName] ?? 0) + (appStats['attempts'] as int? ?? 0);
+          }
+        }
+      }
+      
+      return {
+        'attempts': totalAttempts,
+        'blocked': totalBlocked,
+        'totalBlockTime': totalBlockTime,
+        'appAttempts': appAttempts,
+      };
+    } catch (e) {
+      print('Failed to get blocking stats: $e');
+      return {
+        'attempts': 0,
+        'blocked': 0,
+        'totalBlockTime': 0,
+        'appAttempts': <String, int>{},
+      };
+    }
+  }
+ 
   // Dispose
   void dispose() {
     _checkTimer?.cancel();
     _checkTimer = null;
   }
-
-  // Get blocking statistics for a specific period
-  Future<Map<String, dynamic>> getBlockingStatsForPeriod(String period) async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Mock data for demonstration - in real app, this would come from actual blocking logs
-    final mockBlockingData = {
-      'today': {
-        'blockedApps': 5,
-        'totalBlockTime': const Duration(hours: 2, minutes: 30),
-        'blockAttempts': 12,
-        'successfulBlocks': 10,
-        'blockedAppsList': [
-          'com.facebook.katana',
-          'com.instagram.android',
-          'com.google.android.youtube',
-          'com.zhiliaoapp.musically',
-          'com.whatsapp',
-        ],
-      },
-      'week': {
-        'blockedApps': 8,
-        'totalBlockTime': const Duration(hours: 15, minutes: 45),
-        'blockAttempts': 45,
-        'successfulBlocks': 38,
-        'blockedAppsList': [
-          'com.facebook.katana',
-          'com.instagram.android',
-          'com.google.android.youtube',
-          'com.zhiliaoapp.musically',
-          'com.whatsapp',
-          'com.spotify.music',
-          'com.netflix.mediaclient',
-          'com.discord',
-        ],
-      },
-      'month': {
-        'blockedApps': 12,
-        'totalBlockTime': const Duration(hours: 45, minutes: 20),
-        'blockAttempts': 180,
-        'successfulBlocks': 156,
-        'blockedAppsList': [
-          'com.facebook.katana',
-          'com.instagram.android',
-          'com.google.android.youtube',
-          'com.zhiliaoapp.musically',
-          'com.whatsapp',
-          'com.spotify.music',
-          'com.netflix.mediaclient',
-          'com.discord',
-          'com.reddit.frontpage',
-          'com.pinterest',
-          'com.snapchat.android',
-          'com.twitter.android',
-        ],
-      },
-    };
-
-    return Map<String, dynamic>.from(mockBlockingData[period] ?? {});
-  }
-
-  // Get blocking efficiency (successful blocks / total attempts)
-  Future<double> getBlockingEfficiency(String period) async {
-    final stats = await getBlockingStatsForPeriod(period);
-    final attempts = stats['blockAttempts'] ?? 0;
-    final successful = stats['successfulBlocks'] ?? 0;
-    
-    if (attempts == 0) return 0.0;
-    return (successful / attempts) * 100;
-  }
-
-  // Get most blocked apps for a period
-  Future<List<String>> getMostBlockedApps(String period) async {
-    final stats = await getBlockingStatsForPeriod(period);
-    final blockedAppsList = List<String>.from(stats['blockedAppsList'] ?? []);
-    return blockedAppsList;
-  }
-
-  // Save blocking event (for future implementation)
-  Future<void> saveBlockingEvent(String packageName, bool wasSuccessful) async {
-    final prefs = await SharedPreferences.getInstance();
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final key = 'blocking_event_${today}_$packageName';
-    
-    // Get existing events for today
-    final existingEvents = prefs.getStringList(key) ?? [];
-    existingEvents.add('${DateTime.now().millisecondsSinceEpoch}_${wasSuccessful ? 'success' : 'failed'}');
-    
-    // Keep only last 100 events to avoid memory issues
-    if (existingEvents.length > 100) {
-      existingEvents.removeRange(0, existingEvents.length - 100);
-    }
-    
-    await prefs.setStringList(key, existingEvents);
-  }
-
-  // Get blocking events for a specific app and date
-  Future<List<Map<String, dynamic>>> getBlockingEvents(String packageName, String date) async {
-    final prefs = await SharedPreferences.getInstance();
-    final key = 'blocking_event_${date}_$packageName';
-    final events = prefs.getStringList(key) ?? [];
-    
-    return events.map((event) {
-      final parts = event.split('_');
-      if (parts.length == 2) {
-        return {
-          'timestamp': int.parse(parts[0]),
-          'successful': parts[1] == 'success',
-        };
-      }
-      return null;
-    }).where((event) => event != null).cast<Map<String, dynamic>>().toList();
-  }
-
-  // Get total blocking time for a period
-  Future<Duration> getTotalBlockingTime(String period) async {
-    final stats = await getBlockingStatsForPeriod(period);
-    return stats['totalBlockTime'] ?? Duration.zero;
-  }
-
-  // Get blocking attempts count for a period
-  Future<int> getBlockingAttempts(String period) async {
-    final stats = await getBlockingStatsForPeriod(period);
-    return stats['blockAttempts'] ?? 0;
-  }
-
-  // Get successful blocks count for a period
-  Future<int> getSuccessfulBlocks(String period) async {
-    final stats = await getBlockingStatsForPeriod(period);
-    return stats['successfulBlocks'] ?? 0;
-  }
-} 
+}

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Thêm dòng này
 import 'storage_service.dart';
 import 'firebase_storage_service.dart';
 import '../models/focus_session.dart';
@@ -273,15 +274,34 @@ class HybridStorageService {
 
   // Clear all data
   Future<void> clearAllData() async {
-    print('HybridStorageService: Clearing all data');
+    print('HybridStorageService: Clearing all data except avatar');
+    
+    // Lưu avatar trước khi clear
+    final prefs = await SharedPreferences.getInstance();
+    final avatarKeys = prefs.getKeys().where((key) => key.startsWith('user_avatar_id_')).toList();
+    final avatarData = <String, String>{};
+    
+    for (final key in avatarKeys) {
+      final value = prefs.getString(key);
+      if (value != null) {
+        avatarData[key] = value;
+      }
+    }
     
     // Clear local data
     await _localStorage.clearAllData();
     
-    // Clear Firebase data if logged in
+    // Khôi phục avatar
+    for (final entry in avatarData.entries) {
+      await prefs.setString(entry.key, entry.value);
+    }
+    
+    // Clear Firebase if logged in
     if (isLoggedIn) {
       await _firebaseStorage.clearAllData();
     }
+    
+    print('HybridStorageService: Data cleared, avatar preserved');
   }
 
   // Get storage info
@@ -308,4 +328,4 @@ class HybridStorageService {
     
     return info;
   }
-} 
+}
