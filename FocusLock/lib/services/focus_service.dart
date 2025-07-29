@@ -179,7 +179,7 @@ class FocusService extends ChangeNotifier {
     }
     
     _isStartingSession = true;
-    
+
     try {
       // Đảm bảo dừng session cũ nếu có
       if (_isActive || _currentSession != null) {
@@ -187,98 +187,119 @@ class FocusService extends ChangeNotifier {
         await stopSession(silent: true); // Không tạo history entry khi dừng để bắt đầu session mới
       }
 
-    final now = DateTime.now();
-    final durationSeconds = durationMinutes * 60;
-    final sessionId = Helpers.generateId();
-    
-    // Kiểm tra xem có session nào được tạo trong 5 giây gần đây không
-    if (_lastStartTime != null && now.difference(_lastStartTime!).inSeconds < 5) {
-      print('FocusService: Session đã được tạo trong 5 giây gần đây, bỏ qua');
-      return;
-    }
-    
-    // Kiểm tra xem session này đã được tạo chưa
-    if (_lastSessionId != null && _sessions.any((s) => s.id == _lastSessionId)) {
-      print('FocusService: Session đã được tạo trước đó, bỏ qua');
-      return;
-    }
-    
-    _currentSession = FocusSession(
-      id: sessionId,
-      startTime: now,
-      endTime: null, // Sẽ cập nhật khi kết thúc
-      durationMinutes: durationMinutes,
-      durationSeconds: durationSeconds,
-      remainingSeconds: durationSeconds,
-      isActive: true,
-      blockedApps: _blockedApps.where((app) => app.isBlocked).map((app) => app.packageName).toList(),
-      goal: goal,
-      pausedTime: null,
-      status: SessionStatus.running,
-      lastActivityTime: now,
-    );
-    
-    _lastSessionId = sessionId;
-    _lastStartTime = now;
+      final now = DateTime.now();
+      final durationSeconds = durationMinutes * 60;
+      final sessionId = Helpers.generateId();
+      
+      // Kiểm tra xem có session nào được tạo trong 5 giây gần đây không
+      if (_lastStartTime != null && now.difference(_lastStartTime!).inSeconds < 5) {
+        print('FocusService: Session đã được tạo trong 5 giây gần đây, bỏ qua');
+        return;
+      }
+      
+      // Kiểm tra xem session này đã được tạo chưa
+      if (_lastSessionId != null && _sessions.any((s) => s.id == _lastSessionId)) {
+        print('FocusService: Session đã được tạo trước đó, bỏ qua');
+        return;
+      }
+      
+      _currentSession = FocusSession(
+        id: sessionId,
+        startTime: now,
+        endTime: null, // Sẽ cập nhật khi kết thúc
+        durationMinutes: durationMinutes,
+        durationSeconds: durationSeconds,
+        remainingSeconds: durationSeconds,
+        isActive: true,
+        blockedApps: _blockedApps.where((app) => app.isBlocked).map((app) => app.packageName).toList(),
+        goal: goal,
+        pausedTime: null,
+        status: SessionStatus.running,
+        lastActivityTime: now,
+      );
+      
+      _lastSessionId = sessionId;
+      _lastStartTime = now;
 
-    _remainingSeconds = durationSeconds;
-    _isActive = true;
+      _remainingSeconds = durationSeconds;
+      _isActive = true;
 
-    // Save session
-    await _storageService.addFocusSession(_currentSession!);
-    _sessions.add(_currentSession!);
-    await _statisticsService.addSession(_currentSession!);
-    
-    // Auto save timer state
-    await autoSaveTimerState();
-    
-    // Auto save session state immediately
-    await autoSaveSessionState();
+      // Save session
+      await _storageService.addFocusSession(_currentSession!);
+      _sessions.add(_currentSession!);
+      await _statisticsService.addSession(_currentSession!);
+      
+      // Auto save timer state
+      await autoSaveTimerState();
+      
+      // Auto save session state immediately
+      await autoSaveSessionState();
 
-    // Add history entry
-    await _statisticsService.addHistoryEntry(
-      sessionId: _currentSession!.id,
-      action: SessionAction.started,
-      data: {
-        'durationMinutes': durationMinutes,
-        'goal': goal,
-        'blockedApps': _currentSession!.blockedApps,
-      },
-      note: goal != null ? 'Bắt đầu phiên tập trung với mục tiêu: $goal' : 'Bắt đầu phiên tập trung',
-    );
+      // Add history entry
+      await _statisticsService.addHistoryEntry(
+        sessionId: _currentSession!.id,
+        action: SessionAction.started,
+        data: {
+          'durationMinutes': durationMinutes,
+          'goal': goal,
+          'blockedApps': _currentSession!.blockedApps,
+        },
+        note: goal != null ? 'Bắt đầu phiên tập trung với mục tiêu: $goal' : 'Bắt đầu phiên tập trung',
+      );
 
-    // Start timer
-    _startTimer();
+      // Start timer
+      _startTimer();
 
-    // Start app blocking - chỉ chặn những app có isBlocked = true
-    final appsToBlock = _blockedApps.where((app) => app.isBlocked).toList();
-    print('FocusService: Starting blocking for ${appsToBlock.length} selected apps');
-    if (appsToBlock.isNotEmpty) {
-      print('FocusService: Apps to block: ${appsToBlock.map((app) => '${app.appName} (${app.packageName})').join(', ')}');
-    } else {
-      print('FocusService: No apps selected for blocking');
-    }
-    await _appBlockingService.startBlocking(appsToBlock);
+      // Start app blocking - chỉ chặn những app có isBlocked = true
+      final appsToBlock = _blockedApps.where((app) => app.isBlocked).toList();
+      print('FocusService: Starting blocking for ${appsToBlock.length} selected apps');
+      if (appsToBlock.isNotEmpty) {
+        print('FocusService: Apps to block: ${appsToBlock.map((app) => '${app.appName} (${app.packageName})').join(', ')}');
+      } else {
+        print('FocusService: No apps selected for blocking');
+      }
+      await _appBlockingService.startBlocking(appsToBlock);
 
-    // Show notification
-    await _notificationService.showFocusStartNotification(
-      durationMinutes: durationMinutes,
-      goal: goal,
-    );
+      // Show notification
+      await _notificationService.showFocusStartNotification(
+        durationMinutes: durationMinutes,
+        goal: goal,
+      );
 
-    // Thông báo nếu chưa chọn app nào để chặn
-    if (appsToBlock.isEmpty) {
-      print('FocusService: Warning - No apps selected for blocking');
-      // Gửi event để UI có thể hiển thị thông báo
+      // Thông báo nếu chưa chọn app nào để chặn
+      if (appsToBlock.isEmpty) {
+        print('FocusService: Warning - No apps selected for blocking');
+        // Gửi event để UI có thể hiển thị thông báo
+        notifyListeners();
+      }
+
+      print('FocusService: Đã hoàn thành startSession');
+      
+      // Auto cleanup duplicates sau khi tạo session
+      await autoCleanupDuplicates();
+      
       notifyListeners();
-    }
-
-    print('FocusService: Đã hoàn thành startSession');
-    
-    // Auto cleanup duplicates sau khi tạo session
-    await autoCleanupDuplicates();
-    
-    notifyListeners();
+    } catch (e) {
+      print('FocusService: Lỗi trong startSession: $e');
+      // Reset state nếu có lỗi
+      _isActive = false;
+      _currentSession = null;
+      _remainingSeconds = 0;
+      _timer?.cancel();
+      _timer = null;
+      _lastSessionId = null;
+      _lastStartTime = null;
+      
+      // Đảm bảo dừng app blocking nếu đã bắt đầu
+      await _appBlockingService.stopBlocking();
+      
+      // Hủy thông báo nếu đã hiển thị
+      await _notificationService.cancelFocusProgressNotification();
+      
+      notifyListeners();
+      
+      // Re-throw để UI có thể hiển thị lỗi nếu cần
+      rethrow;
     } finally {
       _isStartingSession = false;
     }

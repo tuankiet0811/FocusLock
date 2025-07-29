@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'services/focus_service.dart';
 import 'services/auth_service.dart';
+import 'services/notification_service.dart'; // Thêm dòng này
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'utils/constants.dart';
@@ -62,7 +63,25 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
       widget.focusService.autoSaveSessionState();
       widget.focusService.autoSaveTimerState();
     }
+    
+    // Thêm phần này để kiểm tra khi app resume
+    if (state == AppLifecycleState.resumed) {
+      print('App resumed, checking notification settings...');
+      _checkNotificationSettingsOnResume();
+    }
   }
+  
+  // Trong method _checkNotificationSettingsOnResume
+  // Cập nhật method _checkNotificationSettingsOnResume
+  Future<void> _checkNotificationSettingsOnResume() async {
+  try {
+    final notificationService = NotificationService();
+    // Chỉ sync khi cần thiết, không ghi đè user settings
+    await notificationService.syncWithSystemSettings(showUserNotification: false);
+  } catch (e) {
+    print('Error checking notification settings: $e');
+  }
+}
 
   void _restartApp() {
     setState(() {

@@ -43,13 +43,36 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } catch (e) {
         setState(() {
-          _errorMessage = e.toString();
+          _errorMessage = _getErrorMessage(e.toString());
         });
       }
     }
     setState(() {
       _isLoading = false;
     });
+  }
+
+  // Thêm method mới để chuyển đổi lỗi Firebase thành thông báo thân thiện
+  String _getErrorMessage(String error) {
+    if (error.contains('user-not-found')) {
+      return 'Email này chưa được đăng ký. Vui lòng kiểm tra lại hoặc đăng ký tài khoản mới.';
+    } else if (error.contains('wrong-password')) {
+      return 'Mật khẩu không đúng. Vui lòng thử lại.';
+    } else if (error.contains('invalid-email')) {
+      return 'Định dạng email không hợp lệ.';
+    } else if (error.contains('user-disabled')) {
+      return 'Tài khoản này đã bị vô hiệu hóa.';
+    } else if (error.contains('too-many-requests')) {
+      return 'Quá nhiều lần thử đăng nhập. Vui lòng thử lại sau.';
+    } else if (error.contains('network-request-failed')) {
+      return 'Lỗi kết nối mạng. Vui lòng kiểm tra internet và thử lại.';
+    } else if (error.contains('invalid-credential')) {
+      return 'Thông tin đăng nhập không đúng. Vui lòng kiểm tra email và mật khẩu.';
+    } else if (error.contains('operation-not-allowed')) {
+      return 'Phương thức đăng nhập này chưa được kích hoạt.';
+    } else {
+      return 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin và thử lại.';
+    }
   }
 
   void _goToRegister() {
@@ -128,4 +151,4 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-} 
+}

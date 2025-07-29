@@ -2,12 +2,14 @@ package com.example.focuslock
 
 import android.app.ActivityManager
 import android.app.AlertDialog
+import android.app.NotificationManager // Thêm dòng này
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build // Thêm dòng này
 import android.provider.Settings
 import android.view.WindowManager
 import androidx.annotation.NonNull
@@ -18,7 +20,7 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import java.util.Calendar
 
-class AppBlockingPlugin: FlutterPlugin, MethodCallHandler {
+class AppBlockingPlugin : FlutterPlugin, MethodCallHandler {
   private lateinit var channel : MethodChannel
   private lateinit var context: Context
   private lateinit var activityManager: ActivityManager
@@ -36,7 +38,6 @@ class AppBlockingPlugin: FlutterPlugin, MethodCallHandler {
   }
 
   override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
-    println("AppBlockingPlugin: onMethodCall: ${call.method}")
     when (call.method) {
       "init" -> {
         result.success(null)
@@ -95,6 +96,9 @@ class AppBlockingPlugin: FlutterPlugin, MethodCallHandler {
       "getAppUsageStats" -> {
         getAppUsageStats(call, result)
       }
+      "checkNotificationPermission" -> {
+        checkNotificationPermission(result)
+      }
       "requestUsageAccessPermission" -> {
         try {
           val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
@@ -132,14 +136,6 @@ class AppBlockingPlugin: FlutterPlugin, MethodCallHandler {
 
   private fun stopBlocking() {
     isBlockingActive = false
-    
-    // ❌ XÓA: Code gọi removeBlockingOverlay
-    // try {
-    //     channel.invokeMethod("removeBlockingOverlay", null)
-    // } catch (e: Exception) {
-    //     println("AppBlockingPlugin: Failed to call removeBlockingOverlay: ${e.message}")
-    // }
-    
     blockedApps.clear()
     
     // Stop overlay service
@@ -424,6 +420,20 @@ class AppBlockingPlugin: FlutterPlugin, MethodCallHandler {
           packageManager.getApplicationLabel(applicationInfo).toString()
       } catch (e: Exception) {
           null
+      }
+  }
+  
+  private fun checkNotificationPermission(result: MethodChannel.Result) {
+      try {
+          val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+          val areEnabled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+              notificationManager.areNotificationsEnabled()
+          } else {
+              true // Trước Android N, không có API để kiểm tra
+          }
+          result.success(areEnabled)
+      } catch (e: Exception) {
+          result.error("PERMISSION_ERROR", "Failed to check notification permission", e.message)
       }
   }
 }

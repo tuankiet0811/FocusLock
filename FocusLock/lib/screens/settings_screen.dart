@@ -28,8 +28,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadSettings();
+    _checkSystemNotificationSettings(); // Thêm dòng này
   }
-
+  
+  // Thêm method kiểm tra cài đặt hệ thống
+  Future<void> _checkSystemNotificationSettings() async {
+    final notificationService = NotificationService();
+    await notificationService.syncWithSystemSettings(showUserNotification: true);
+    
+    // Reload settings để cập nhật UI
+    _loadSettings();
+  }
+  
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -179,62 +189,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   );
                 } : null,
-              ),
-              // Thêm nút test thông báo
-              ListTile(
-                leading: const Icon(Icons.notifications_outlined),
-                title: const Text('Kiểm tra thông báo'),
-                subtitle: const Text('Gửi thông báo thử nghiệm'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: _notificationsEnabled ? () async {
-                  await _notificationService.showFocusStartNotification(
-                    durationMinutes: 25,
-                    goal: 'Thử nghiệm thông báo',
-                  );
-                  
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Đã gửi thông báo thử nghiệm'),
-                        backgroundColor: Colors.blue,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  }
-                } : null,
-              ),
+              ), 
             ],
           ),
 
-          const SizedBox(height: 24),
+          
 
-          // Appearance Section
-          _buildSection(
-            title: 'Giao diện',
-            icon: Icons.palette,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.dark_mode),
-                title: const Text('Chế độ hiển thị'),
-                subtitle: Text(_getThemeDisplayName(_theme)),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () => _showThemePicker(),
-              ),
-              ListTile(
-                leading: const Icon(Icons.language),
-                title: const Text('Ngôn ngữ'),
-                subtitle: const Text('Tiếng Việt'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Tính năng đang phát triển'),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
+          
 
           const SizedBox(height: 24),
 
@@ -249,7 +210,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: const Text('Cài đặt quyền ứng dụng'),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () {
-                  // TODO: Navigate to permissions
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const DebugScreen(),
+                    ),
+                  );
                 },
               ),
               ListTile(

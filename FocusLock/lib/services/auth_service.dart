@@ -52,15 +52,7 @@ class AuthService with ChangeNotifier {
   // Clear user data when signing out
   Future<void> _clearUserData() async {
     try {
-      print('AuthService: Clearing user data...');
-      
-      // KHÔNG xóa avatar - để user giữ avatar khi đăng nhập lại
-      // Avatar sẽ được lưu riêng theo user ID
-      
-      // Chỉ xóa các dữ liệu session tạm thời nếu cần
-      // final prefs = await SharedPreferences.getInstance();
-      // await prefs.remove('temp_session_data'); // ví dụ
-      
+      print('AuthService: Clearing user data...'); 
       print('AuthService: User data cleared (avatar preserved)');
     } catch (e) {
       print('AuthService: Error clearing user data: $e');

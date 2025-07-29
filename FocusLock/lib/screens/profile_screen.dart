@@ -1,3 +1,6 @@
+
+import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
@@ -20,14 +23,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _message;
   static const platform = MethodChannel('focuslock/app_blocking');
   Key _avatarKey = UniqueKey(); // Thêm key để force rebuild
+  Timer? _emailCheckTimer;
+  StreamSubscription<User?>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
     _checkEmailVerificationCooldown();
-    // Tự động reload user info khi mở profile
+    _setupAutoEmailVerificationCheck();
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshUserInfo();
+    });
+  }
+
+  @override
+  void dispose() {
+    _emailCheckTimer?.cancel();
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _setupAutoEmailVerificationCheck() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    
+    // Lắng nghe thay đổi auth state
+    _authSubscription = authService.authStateChanges().listen((user) {
+      if (mounted && user != null) {
+        // Nếu email đã xác thực, dừng timer
+        if (user.emailVerified) {
+          _emailCheckTimer?.cancel();
+        } else {
+          // Nếu chưa xác thực, bắt đầu kiểm tra định kỳ
+          _startPeriodicCheck();
+        }
+      }
+    });
+  }
+
+  void _startPeriodicCheck() {
+    _emailCheckTimer?.cancel(); // Hủy timer cũ nếu có
+    
+    _emailCheckTimer = Timer.periodic(const Duration(seconds: 15), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      
+      try {
+        final authService = Provider.of<AuthService>(context, listen: false);
+        await authService.reloadUser();
+        
+        if (authService.currentUser?.emailVerified == true) {
+          timer.cancel();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('🎉 Email đã được xác thực thành công!'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        print('Lỗi khi kiểm tra email verification: $e');
+      }
     });
   }
 
@@ -274,7 +335,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(title: const Text('Thông tin tài khoản')),
       body: user == null
           ? const Center(child: Text('Chưa đăng nhập'))
-          : Padding(
+          : SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,7 +409,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'Nhấn "Làm mới" sau khi xác thực email',
+                                        'Trạng thái sẽ tự động cập nhật',
                                         style: TextStyle(
                                           fontSize: 10,
                                           color: Colors.grey.shade600,
@@ -459,16 +520,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 },
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Làm mới'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                        ),
-                        onPressed: _isLoading ? null : _refreshUserInfo,
-                      ),
+                      
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -477,9 +529,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
+                        color: Colors.grey.shade50,  // Thay đổi từ Colors.orange.shade50
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.orange.shade200),
+                        border: Border.all(color: Colors.grey.shade300),  // Thay đổi từ Colors.orange.shade200
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -487,8 +539,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Row(
                             children: [
                               Icon(
-                                Icons.warning,
-                                color: Colors.orange.shade700,
+                                Icons.info_outline,  // Thay đổi từ Icons.warning
+                                color: Colors.blue.shade700,  // Thay đổi từ Colors.orange.shade700
                                 size: 20,
                               ),
                               const SizedBox(width: 8),
@@ -497,7 +549,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.orange.shade700,
+                                  color: Colors.blue.shade700,  // Thay đổi từ Colors.orange.shade700
                                 ),
                               ),
                             ],
@@ -523,7 +575,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: _emailVerificationCooldown
                                     ? Colors.grey
-                                    : Colors.orange,
+                                    : Colors.blue,  // Thay đổi từ Colors.orange
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 12,

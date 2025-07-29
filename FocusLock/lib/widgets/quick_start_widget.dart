@@ -16,12 +16,15 @@ class QuickStartWidget extends StatefulWidget {
 }
 
 class _QuickStartWidgetState extends State<QuickStartWidget> {
-  int _selectedDuration = 5; // Thay đổi từ 1 thành 5 phút
+  int _selectedDuration = 5;
   final TextEditingController _goalController = TextEditingController();
+  final TextEditingController _customTimeController = TextEditingController();
+  bool _isCustomTime = false;
 
   @override
   void dispose() {
     _goalController.dispose();
+    _customTimeController.dispose();
     super.dispose();
   }
 
@@ -81,39 +84,169 @@ class _QuickStartWidgetState extends State<QuickStartWidget> {
           ),
           const SizedBox(height: 12),
           
+          // Predefined durations
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: AppConstants.defaultDurations.map((duration) {
-              final isSelected = duration == _selectedDuration;
-              return GestureDetector(
+            children: [
+              ...AppConstants.defaultDurations.map((duration) {
+                final isSelected = duration == _selectedDuration && !_isCustomTime;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedDuration = duration;
+                      _isCustomTime = false;
+                      _customTimeController.clear();
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected 
+                          ? const Color(AppConstants.primaryColor)
+                          : Colors.grey[100],
+                      borderRadius: BorderRadius.circular(20),
+                      border: isSelected
+                          ? null
+                          : Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: Text(
+                      '${duration} phút',
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.grey[700],
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+              
+              // Custom time button
+              GestureDetector(
                 onTap: () {
                   setState(() {
-                    _selectedDuration = duration;
+                    _isCustomTime = true;
                   });
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isSelected 
+                    color: _isCustomTime 
                         ? const Color(AppConstants.primaryColor)
                         : Colors.grey[100],
                     borderRadius: BorderRadius.circular(20),
-                    border: isSelected
+                    border: _isCustomTime
                         ? null
                         : Border.all(color: Colors.grey[300]!),
                   ),
-                  child: Text(
-                    '${duration} phút',
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.grey[700],
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.edit,
+                        size: 16,
+                        color: _isCustomTime ? Colors.white : Colors.grey[700],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Tùy chỉnh',
+                        style: TextStyle(
+                          color: _isCustomTime ? Colors.white : Colors.grey[700],
+                          fontWeight: _isCustomTime ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              );
-            }).toList(),
+              ),
+            ],
           ),
+          
+          // Custom time input field
+          if (_isCustomTime) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _customTimeController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: 'Nhập số phút (1-999)',
+                      hintStyle: TextStyle(color: Colors.grey[500]),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: Color(AppConstants.primaryColor),
+                          width: 2,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      suffixText: 'phút',
+                      suffixStyle: TextStyle(color: Colors.grey[600]),
+                    ),
+                    onChanged: (value) {
+                      if (value.isNotEmpty) {
+                        final customDuration = int.tryParse(value);
+                        if (customDuration != null && customDuration > 0 && customDuration <= 999) {
+                          setState(() {
+                            _selectedDuration = customDuration;
+                          });
+                        }
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+            
+            // Validation message
+            if (_customTimeController.text.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Builder(
+                builder: (context) {
+                  final customDuration = int.tryParse(_customTimeController.text);
+                  if (customDuration == null || customDuration <= 0) {
+                    return Text(
+                      'Vui lòng nhập số phút hợp lệ (lớn hơn 0)',
+                      style: TextStyle(
+                        color: const Color(AppConstants.errorColor),
+                        fontSize: 12,
+                      ),
+                    );
+                  } else if (customDuration > 999) {
+                    return Text(
+                      'Thời gian tối đa là 999 phút',
+                      style: TextStyle(
+                        color: const Color(AppConstants.errorColor),
+                        fontSize: 12,
+                      ),
+                    );
+                  } else {
+                    return Text(
+                      'Thời gian tập trung: $customDuration phút',
+                      style: TextStyle(
+                        color: const Color(AppConstants.successColor),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          ],
           
           const SizedBox(height: 24),
           
@@ -162,6 +295,20 @@ class _QuickStartWidgetState extends State<QuickStartWidget> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () {
+                // Validate custom time if selected
+                if (_isCustomTime) {
+                  final customDuration = int.tryParse(_customTimeController.text);
+                  if (customDuration == null || customDuration <= 0 || customDuration > 999) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Vui lòng nhập thời gian hợp lệ (1-999 phút)'),
+                        backgroundColor: Color(AppConstants.errorColor),
+                      ),
+                    );
+                    return;
+                  }
+                }
+                
                 final goal = _goalController.text.trim().isEmpty 
                     ? null 
                     : _goalController.text.trim();
@@ -266,4 +413,4 @@ class _QuickStartWidgetState extends State<QuickStartWidget> {
       ),
     );
   }
-} 
+}

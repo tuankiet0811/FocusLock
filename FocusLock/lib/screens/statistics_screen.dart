@@ -720,13 +720,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     final appUsageService = AppUsageService();
     return await appUsageService.getAppUsageForPeriod(_selectedPeriod);
   }
-
-  // ❌ XÓA HOÀN TOÀN method _getBlockingStatsForPeriod()
-  // Future<Map<String, dynamic>> _getBlockingStatsForPeriod() async {
-  //   final appBlockingService = AppBlockingService();
-  //   return await appBlockingService.getBlockingStatsForPeriod(_selectedPeriod);
-  // }
-
   String _formatDuration(Duration duration) {
     final hours = duration.inHours;
     final minutes = duration.inMinutes % 60;
@@ -788,12 +781,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     
     return (totalActualMinutes / sessions.length).round().toInt();
   }
-
-  // ❌ XÓA HOÀN TOÀN method _calculateBlockingEfficiency()
-  // int _calculateBlockingEfficiency(int attempts, int blocked) {
-  //   if (attempts == 0) return 0;
-  //   return ((blocked / attempts) * 100).round().toInt();
-  // }
 
   String _getProductivityMessage(int score) {
     if (score >= 90) return 'Xuất sắc!';

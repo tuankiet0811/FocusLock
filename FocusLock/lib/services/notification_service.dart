@@ -1,5 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Thêm import này
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart'; // Thêm import này
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
 
@@ -9,6 +10,9 @@ class NotificationService {
   NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
+  
+  // Thêm MethodChannel để giao tiếp với native Android
+  static const MethodChannel _channel = MethodChannel('focuslock/notifications');
   
   // Thêm các biến instance bị thiếu
   bool _isProgressNotificationShown = false;
@@ -44,23 +48,40 @@ class NotificationService {
     }
   }
 
+  // Thêm method để tạo dynamic channel ID
+  String _getFocusChannelId(bool soundEnabled, bool vibrationEnabled) {
+    return 'focus_channel_s${soundEnabled ? '1' : '0'}_v${vibrationEnabled ? '1' : '0'}';
+  }
+
+  String _getAppBlockedChannelId(bool soundEnabled, bool vibrationEnabled) {
+    return 'app_blocked_channel_s${soundEnabled ? '1' : '0'}_v${vibrationEnabled ? '1' : '0'}';
+  }
+  
+  // Cập nhật _createNotificationChannels
   Future<void> _createNotificationChannels() async {
-    const focusChannel = AndroidNotificationChannel(
-      AppConstants.focusChannelId,
+    final prefs = await SharedPreferences.getInstance();
+    final vibrationEnabled = prefs.getBool('vibration_enabled') ?? true;
+    final soundEnabled = prefs.getBool('sound_enabled') ?? true;
+    
+    final focusChannelId = _getFocusChannelId(soundEnabled, vibrationEnabled);
+    final appBlockedChannelId = _getAppBlockedChannelId(soundEnabled, vibrationEnabled);
+    
+    final focusChannel = AndroidNotificationChannel(
+      focusChannelId,
       'Focus Sessions',
       description: 'Thông báo về phiên tập trung',
       importance: Importance.high,
-      playSound: true,
-      enableVibration: true,
+      playSound: soundEnabled,
+      enableVibration: vibrationEnabled,
     );
   
-    const appBlockedChannel = AndroidNotificationChannel(
-      AppConstants.appBlockedChannelId,
-      'App Blocked',
+    final appBlockedChannel = AndroidNotificationChannel(
+      appBlockedChannelId,
+      'App Blocked', 
       description: 'Thông báo khi ứng dụng bị chặn',
       importance: Importance.max,
-      playSound: true,
-      enableVibration: true,
+      playSound: soundEnabled,
+      enableVibration: vibrationEnabled,
     );
   
     final androidImplementation = _notifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
@@ -104,13 +125,16 @@ class NotificationService {
     final shouldPlaySound = await _shouldPlaySound();
     final shouldVibrate = await _shouldVibrate();
     
+    // Sử dụng dynamic channel ID
+    final channelId = _getFocusChannelId(shouldPlaySound, shouldVibrate);
+    
     final androidDetails = AndroidNotificationDetails(
-      AppConstants.focusChannelId,
+      channelId, // ✅ Sử dụng dynamic channel ID
       'Focus Sessions',
       channelDescription: 'Thông báo về phiên tập trung',
       showWhen: true,
-      playSound: shouldPlaySound,
-      enableVibration: shouldVibrate,
+      // Không cần set playSound và enableVibration ở đây nữa
+      // vì đã được set trong channel
     );
 
     final iosDetails = DarwinNotificationDetails(
@@ -135,6 +159,7 @@ class NotificationService {
   }
   
   // Cập nhật method showFocusEndNotification
+  // Cập nhật showFocusEndNotification
   Future<void> showFocusEndNotification({
     required int durationMinutes,
     required bool completed,
@@ -147,8 +172,11 @@ class NotificationService {
     final shouldPlaySound = await _shouldPlaySound();
     final shouldVibrate = await _shouldVibrate();
     
+    // ✅ Sử dụng dynamic channel ID
+    final channelId = _getFocusChannelId(shouldPlaySound, shouldVibrate);
+    
     final androidDetails = AndroidNotificationDetails(
-      AppConstants.focusChannelId,
+      channelId, // ✅ Dynamic channel ID
       'Focus Sessions',
       channelDescription: 'Thông báo về phiên tập trung',
       showWhen: true,
@@ -195,8 +223,11 @@ class NotificationService {
     final shouldPlaySound = await _shouldPlaySound();
     final shouldVibrate = await _shouldVibrate();
     
+    // ✅ Sử dụng dynamic channel ID
+    final channelId = _getAppBlockedChannelId(shouldPlaySound, shouldVibrate);
+    
     final androidDetails = AndroidNotificationDetails(
-      AppConstants.appBlockedChannelId,
+      channelId, // ✅ Dynamic channel ID
       'App Blocked',
       channelDescription: 'Thông báo khi ứng dụng bị chặn',
       showWhen: true,
@@ -224,10 +255,15 @@ class NotificationService {
   }
   
   // Thêm method này để settings_screen.dart có thể gọi
-  Future<void> updateNotificationSettings() async {
-    // Method này có thể để trống hoặc thực hiện logic cập nhật nếu cần
-    // Hiện tại logic kiểm tra settings đã được tích hợp vào từng method riêng
-  }
+  // Sửa method updateNotificationSettings
+Future<void> updateNotificationSettings() async {
+// Không thể xóa channels trên Android 8.0+, thay vào đó tạo channels mới với ID khác
+// hoặc sử dụng cách tiếp cận khác
+// Cách 1: Tạo lại channels (Android sẽ bỏ qua nếu đã tồn tại)
+await _createNotificationChannels();
+// Cách 2: Sử dụng channel ID động dựa trên settings
+// Điều này sẽ tạo channel mới mỗi khi settings thay đổi
+}
 
   Future<void> showMotivationalNotification({
     required double completionPercentage,
@@ -241,8 +277,11 @@ class NotificationService {
     final shouldPlaySound = await _shouldPlaySound();
     final shouldVibrate = await _shouldVibrate();
     
+    // ✅ Sử dụng dynamic channel ID
+    final channelId = _getFocusChannelId(shouldPlaySound, shouldVibrate);
+    
     final androidDetails = AndroidNotificationDetails(
-      AppConstants.focusChannelId,
+      channelId, // ✅ Dynamic channel ID
       'Focus Sessions',
       channelDescription: 'Thông báo về phiên tập trung',
       showWhen: true,
@@ -321,8 +360,11 @@ class NotificationService {
       
       final progressValue = completionPercentage.round();
       
+      // ✅ Sử dụng dynamic channel ID
+      final channelId = _getFocusChannelId(shouldPlaySound, shouldVibrate);
+      
       final androidDetails = AndroidNotificationDetails(
-        AppConstants.focusChannelId,
+        channelId, // ✅ Dynamic channel ID
         'Focus Sessions',
         channelDescription: 'Thông báo về phiên tập trung',
         showWhen: false,
@@ -384,4 +426,60 @@ class NotificationService {
     _isProgressNotificationShown = false;
     _lastProgressPercentage = null;
   }
+  
+  // Thêm method kiểm tra notification permission từ hệ thống
+  Future<bool> areNotificationsEnabled() async {
+    try {
+      // Kiểm tra từ native Android
+      final result = await _channel.invokeMethod('checkNotificationPermission');
+      return result ?? false;
+    } catch (e) {
+      print('Error checking notification permission: $e');
+      
+      // Fallback: kiểm tra bằng flutter_local_notifications
+      final androidImplementation = _notifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      
+      if (androidImplementation != null) {
+        final bool? enabled = await androidImplementation.areNotificationsEnabled();
+        return enabled ?? false;
+      }
+      return false;
+    }
+  }
+  
+  // Method để đồng bộ và thông báo cho người dùng
+  // Cập nhật method syncWithSystemSettings
+Future<void> syncWithSystemSettings({bool showUserNotification = false}) async {
+  final systemNotificationsEnabled = await areNotificationsEnabled();
+  final prefs = await SharedPreferences.getInstance();
+  final currentAppSetting = prefs.getBool('notifications_enabled') ?? true;
+  
+  // Chỉ cập nhật nếu:
+  // 1. System notifications bị tắt (ưu tiên system setting)
+  // 2. Hoặc nếu system bật nhưng app setting chưa được set (lần đầu)
+  bool shouldUpdate = false;
+  bool newValue = currentAppSetting;
+  
+  if (!systemNotificationsEnabled) {
+    // Nếu system tắt, buộc phải tắt app setting
+    shouldUpdate = currentAppSetting != false;
+    newValue = false;
+  }
+  // Không tự động bật lại nếu user đã tắt trong app
+  
+  if (shouldUpdate) {
+    await prefs.setBool('notifications_enabled', newValue);
+    
+    // Tạo lại notification channels với cài đặt mới
+    await updateNotificationSettings();
+    
+    // Thông báo cho người dùng nếu cần
+    if (showUserNotification) {
+      final message = newValue 
+          ? 'Thông báo đã được bật từ cài đặt hệ thống'
+          : 'Thông báo đã được tắt do cài đặt hệ thống';
+      print('Notification setting changed: $message');
+    }
+  }
+}
 }
