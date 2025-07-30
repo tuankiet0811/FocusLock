@@ -296,10 +296,29 @@ class AppBlockingPlugin : FlutterPlugin, MethodCallHandler {
           } catch (e: Exception) {
             appInfo.packageName
           }
+          
+          // Lấy category từ hệ thống (Android 8.0+)
+          val category = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            when (appInfo.category) {
+              ApplicationInfo.CATEGORY_GAME -> "gaming"
+              ApplicationInfo.CATEGORY_SOCIAL -> "social"
+              ApplicationInfo.CATEGORY_AUDIO -> "entertainment"
+              ApplicationInfo.CATEGORY_VIDEO -> "entertainment"
+              ApplicationInfo.CATEGORY_PRODUCTIVITY -> "productivity"
+              ApplicationInfo.CATEGORY_NEWS -> "news"
+              ApplicationInfo.CATEGORY_MAPS -> "utilities"
+              ApplicationInfo.CATEGORY_IMAGE -> "utilities"
+              else -> "other"
+            }
+          } else {
+            "other" // Fallback cho Android cũ hơn
+          }
+          
           apps.add(mapOf(
             "packageName" to appInfo.packageName,
             "appName" to appName,
-            "isBlocked" to blockedApps.contains(appInfo.packageName)
+            "isBlocked" to blockedApps.contains(appInfo.packageName),
+            "category" to category
           ))
         }
       }

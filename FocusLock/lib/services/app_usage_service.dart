@@ -91,25 +91,41 @@ class AppUsageService {
     List<AppInfo> result;
     switch (category.toLowerCase()) {
       case 'social':
-        result = allApps.where((app) => _isSocialMediaApp(app.packageName)).toList();
+        // Ưu tiên category từ hệ thống, fallback về danh sách cứng
+        result = allApps.where((app) => 
+          app.category == 'social' || _isSocialMediaApp(app.packageName)
+        ).toList();
         break;
       case 'entertainment':
-        result = allApps.where((app) => _isEntertainmentApp(app.packageName)).toList();
-        break;
-      case 'productivity':
-        result = allApps.where((app) => _isProductivityApp(app.packageName)).toList();
+        result = allApps.where((app) => 
+          app.category == 'entertainment' || _isEntertainmentApp(app.packageName)
+        ).toList();
         break;
       case 'gaming':
-        result = allApps.where((app) => _isGamingApp(app.packageName)).toList();
+        result = allApps.where((app) => 
+          app.category == 'gaming' || _isGamingApp(app.packageName)
+        ).toList();
+        break;
+      case 'productivity':
+        result = allApps.where((app) => 
+          app.category == 'productivity' || _isProductivityApp(app.packageName)
+        ).toList();
+        break;
+      case 'news':
+        result = allApps.where((app) => 
+          app.category == 'news' || _isNewsApp(app.packageName)
+        ).toList();
+        break;
+      case 'utilities':
+        result = allApps.where((app) => 
+          app.category == 'utilities' || _isUtilitiesApp(app.packageName)
+        ).toList();
         break;
       case 'communication':
         result = allApps.where((app) => _isCommunicationApp(app.packageName)).toList();
         break;
       case 'shopping':
         result = allApps.where((app) => _isShoppingApp(app.packageName)).toList();
-        break;
-      case 'news':
-        result = allApps.where((app) => _isNewsApp(app.packageName)).toList();
         break;
       case 'education':
         result = allApps.where((app) => _isEducationApp(app.packageName)).toList();
@@ -128,19 +144,19 @@ class AppUsageService {
         break;
       default:
         result = allApps;
-        break;
-    }
-    
-    print('AppUsageService: $category category - found ${result.length} apps');
-    return result;
   }
+  
+  print('AppUsageService: $category category - ${result.length} apps');
+  return result;
+}
 
   // Check if app is social media
   bool _isSocialMediaApp(String packageName) {
     final socialMediaPackages = [
+      // Existing apps
       'com.facebook.katana',
       'com.instagram.android',
-      'com.zhiliaoapp.musically',
+      'com.zhiliaoapp.musically', // TikTok
       'com.twitter.android',
       'com.threads.android',
       'com.snapchat.android',
@@ -150,6 +166,31 @@ class AppUsageService {
       'com.reddit.frontpage',
       'com.pinterest',
       'com.linkedin.android',
+      
+      // Additional Vietnamese and popular apps
+      'com.zing.zalo',                    // Zalo
+      'com.facebook.orca',                // Messenger
+      'com.facebook.lite',                // Facebook Lite
+      'com.instagram.lite',               // Instagram Lite
+      'com.zhiliaoapp.musically.go',      // TikTok Lite
+      'com.twitter.android.lite',         // Twitter Lite
+      'com.viber.voip',                   // Viber
+      'com.skype.raider',                 // Skype
+      'com.linecorp.LGTALK',             // Line
+      'com.tencent.mm',                   // WeChat
+      'com.kakao.talk',                   // KakaoTalk
+      'com.imo.android.imoim',           // imo
+      'com.bsb.hike',                     // Hike
+      'com.jio.jioplay.tv',              // JioChat
+      'com.path',                         // Path
+      'com.tumblr',                       // Tumblr
+      'com.vkontakte.android',           // VK
+      'com.badoo.mobile',                 // Badoo
+      'com.tinder',                       // Tinder
+      'com.bumble.app',                   // Bumble
+      'com.coffeemeetsbagel',            // Coffee Meets Bagel
+      'com.match.android',                // Match
+      'com.okcupid.okcupid',             // OkCupid
     ];
     return socialMediaPackages.contains(packageName);
   }
@@ -157,46 +198,56 @@ class AppUsageService {
   // Check if app is entertainment
   bool _isEntertainmentApp(String packageName) {
     final entertainmentPackages = [
+      // Existing apps
       'com.spotify.music',
       'com.netflix.mediaclient',
       'com.google.android.youtube',
       'com.amazon.avod.thirdpartyclient',
       'com.hulu.plus',
       'com.disney.disneyplus',
+      
+      // Additional entertainment apps
+      'com.google.android.youtube.tv',    // YouTube TV
+      'com.google.android.youtube.tvkids', // YouTube Kids
+      'com.google.android.apps.youtube.music', // YouTube Music
+      'com.apple.android.music',          // Apple Music
+      'com.amazon.mp3',                   // Amazon Music
+      'com.soundcloud.android',           // SoundCloud
+      'fm.last.android',                  // Last.fm
+      'com.pandora.android',              // Pandora
+      'com.aspiro.tidal',                 // Tidal
+      'com.deezer.android.app',          // Deezer
+      'com.vevo',                         // Vevo
+      'com.twitch.android.app',          // Twitch
+      'tv.twitch.android.viewer',        // Twitch (alternative)
+      'com.hbo.hbonow',                  // HBO Now
+      'com.hbo.hbomax',                  // HBO Max
+      'com.showtime.showtimeanytime',    // Showtime
+      'com.cbs.app',                     // CBS
+      'com.nbc.nbcuniversal',            // NBC
+      'com.fox.now',                     // FOX NOW
+      'com.crunchyroll.crunchyroid',     // Crunchyroll
+      'com.funimation.funimationdroid',  // Funimation
+      'com.plexapp.android',             // Plex
+      'com.kodi.kore',                   // Kodi
+      'com.mxtech.videoplayer.ad',       // MX Player
+      'com.mxtech.videoplayer.pro',      // MX Player Pro
+      'org.videolan.vlc',                // VLC
+      'com.bsplayer.bspandroid.free',    // BS Player
+      'com.devhd.feedly',                // Feedly
+      'flipboard.app',                   // Flipboard
+      'com.medium.reader',               // Medium
+      'com.audible.application',         // Audible
+      'com.storytel.app',                // Storytel
+      'com.blinkist.app',                // Blinkist
     ];
     return entertainmentPackages.contains(packageName);
-  }
-
-  // Check if app is productivity
-  bool _isProductivityApp(String packageName) {
-    final productivityPackages = [
-      'com.microsoft.office.word',
-      'com.microsoft.office.excel',
-      'com.microsoft.office.powerpoint',
-      'com.google.android.apps.docs.editors.docs',
-      'com.google.android.apps.docs.editors.sheets',
-      'com.google.android.apps.docs.editors.slides',
-      'com.notion.id',
-      'com.trello',
-      'com.asana.app',
-      'com.google.android.gm',
-      'com.slack',
-      'com.microsoft.teams',
-      'com.zoom.us',
-      'com.google.android.apps.meetings',
-      'com.dropbox.android',
-      'com.google.android.apps.drive',
-      'com.evernote',
-      'com.wunderlist.android',
-      'com.todoist',
-      'com.any.do',
-    ];
-    return productivityPackages.contains(packageName);
   }
 
   // Check if app is gaming
   bool _isGamingApp(String packageName) {
     final gamingPackages = [
+      // Existing apps
       'com.activision.callofduty.shooter',
       'com.epicgames.fortnite',
       'com.roblox.client',
@@ -217,8 +268,118 @@ class AppUsageService {
       'com.vng.g6.b',
       'com.vng.g6.c',
       'com.vng.g6.d',
+      
+      // Additional popular games
+      'com.pubg.imobile',                 // PUBG Mobile
+      'com.pubg.krmobile',               // PUBG Mobile KR
+      'com.tencent.tmgp.pubgm',          // PUBG Mobile (Tencent)
+      'com.dts.freefireth',              // Free Fire Thailand
+      'com.dts.freefiremax',             // Free Fire MAX
+      'com.garena.game.codm',            // Call of Duty Mobile
+      'com.miHoYo.GenshinImpact',        // Genshin Impact
+      'com.miHoYo.hkrpg.bilibili',       // Honkai Star Rail
+      'com.lilithgame.hgame.gp',         // AFK Arena
+      'com.igg.android.lordsmobile',     // Lords Mobile
+      'com.king.candycrushfriends',      // Candy Crush Friends
+      'com.king.farmheroessaga',         // Farm Heroes Saga
+      'com.playgendary.kickthebuddy',    // Kick the Buddy
+      'com.outfit7.mytalkingtom2',       // My Talking Tom 2
+      'com.outfit7.mytalkingtomfriends',  // My Talking Tom Friends
+      'com.rovio.angrybirdsdream',       // Angry Birds Dream Blast
+      'com.rovio.baba',                  // Angry Birds Reloaded
+      'com.ea.game.pvz2_row',            // Plants vs Zombies 2
+      'com.ea.game.simcitymobile_row',   // SimCity BuildIt
+      'com.ea.game.nfs14_row',           // Need for Speed
+      'com.gameloft.android.ANMP.GloftA8HM', // Asphalt 8
+      'com.gameloft.android.ANMP.GloftA9HM', // Asphalt 9
+      'com.naturalmotion.customstreetracer3', // CSR Racing 3
+      'com.kiloo.subwaysurf',            // Subway Surfers
+      'com.imangi.templerun2',           // Temple Run 2
+      'com.halfbrick.fruitninja',        // Fruit Ninja
+      'com.zeptolab.ctr.ads',            // Cut the Rope
+      'com.zeptolab.ctr2.f2p.google',    // Cut the Rope 2
+      'com.miniclip.eightballpool',      // 8 Ball Pool
+      'com.miniclip.agar.io',            // Agar.io
+      'com.voodoo.paper.io',             // Paper.io
+      'io.voodoo.paper2',                // Paper.io 2
+      'com.chess.com',                   // Chess.com
+      'uk.co.aifactory.chessfree',       // Chess Free
+      'com.playrix.homescapes',          // Homescapes
+      'com.playrix.gardenscapes',        // Gardenscapes
+      'com.playrix.township',            // Township
+      'com.playrix.fishdom',             // Fishdom
+      'com.sgn.pandapop.gp',             // Panda Pop
+      'com.sgn.cookiejam.gp',            // Cookie Jam
+      'com.sgn.wordcookies.gp',          // Word Cookies
+      'com.zynga.words3',                // Words With Friends
+      'com.zynga.farmville2_country_escape', // FarmVille 2
+      'com.zynga.csrracingfree',         // CSR Racing
+      'com.nexonm.legion',               // Legion of Heroes
+      'com.nexonm.hit.global',           // HIT
+      'com.netmarble.mherosgb',          // Marvel Future Fight
+      'com.netmarble.knightsgb',         // Seven Knights
+      'com.com2us.smon.normal.freefull.google.kr.android.common', // Summoners War
+      'com.gamevil.dragonflight.android.google.global.normal', // Dragon Blaze
     ];
     return gamingPackages.contains(packageName);
+  }
+
+  // Check if app is productivity
+  bool _isProductivityApp(String packageName) {
+    final productivityPackages = [
+      'com.microsoft.office.word',
+      'com.microsoft.office.excel',
+      'com.microsoft.office.powerpoint',
+      'com.google.android.apps.docs.editors.docs',
+      'com.google.android.apps.docs.editors.sheets',
+      'com.google.android.apps.docs.editors.slides',
+      'com.adobe.reader',
+      'com.dropbox.android',
+      'com.google.android.apps.drive',
+      'com.evernote',
+      'com.todoist',
+      'com.any.do',
+      'com.wunderkinder.wunderlistandroid',
+      'com.trello',
+      'com.asana.app',
+      'com.slack',
+      'com.microsoft.teams',
+      'com.zoom.us',
+      'com.google.android.apps.meetings',
+      'com.dropbox.android',
+      'com.google.android.apps.drive',
+      'com.evernote',
+      'com.wunderlist.android',
+      'com.todoist',
+      'com.any.do',
+      'com.adobe.reader',
+      'com.adobe.scan.android',
+      'com.camscanner.android',
+      'com.intsig.camscanner',
+      'com.microsoft.office.onenote',
+      'com.google.android.keep',
+      'com.simplemobiletools.notes.pro',
+      'com.simplemobiletools.calendar.pro',
+      'com.google.android.calendar',
+      'com.microsoft.office.outlook',
+      'com.yahoo.mobile.client.android.mail',
+      'com.airwatch.androidagent',
+      'com.citrix.Receiver',
+      'com.teamviewer.teamviewer.market.mobile',
+      'com.anydesk.anydeskandroid',
+      'com.microsoft.rdc.android',
+      'com.google.android.apps.translate',
+      'com.microsoft.translator',
+      'com.calculator',
+      'com.google.android.calculator',
+      'com.sec.android.app.popupcalculator',
+      'com.miui.calculator',
+      'com.huawei.calculator',
+      'com.oppo.calculator',
+      'com.vivo.calculator',
+      'com.oneplus.calculator',
+    ];
+    return productivityPackages.contains(packageName);
   }
 
   // Check if app is communication
