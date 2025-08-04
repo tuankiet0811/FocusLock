@@ -304,12 +304,20 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                 ),
               ),
               const SizedBox(width: 12),
-              const Text(
-                'Sử dụng ứng dụng',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              const Expanded(
+                child: Text(
+                  'Sử dụng ứng dụng',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+              ),
+              // Thêm button để check permission
+              IconButton(
+                onPressed: _checkAndRequestUsagePermission,
+                icon: const Icon(Icons.settings),
+                tooltip: 'Kiểm tra quyền truy cập',
               ),
             ],
           ),
@@ -800,9 +808,44 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     }
   }
 
+  // Di chuyển method này vào đây, TRƯỚC dấu đóng ngoặc của class
+  Future<void> _checkAndRequestUsagePermission() async {
+    final appBlockingService = AppBlockingService();
+    final hasPermission = await appBlockingService.checkPermissions();
+    
+    if (!hasPermission) {
+      // Show dialog to user
+      final shouldRequest = await showDialog<bool>(
+        context: context, // context available here
+        builder: (context) => AlertDialog(
+          title: const Text('Cần quyền truy cập'),
+          content: const Text(
+            'Để hiển thị thống kê sử dụng ứng dụng chính xác, '
+            'FocusLock cần quyền "Usage Access". '
+            'Bạn có muốn cấp quyền này không?'
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Không'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Cấp quyền'),
+            ),
+          ],
+        ),
+      );
+      
+      if (shouldRequest == true) {
+        await appBlockingService.requestUsageAccessPermission();
+      }
+    }
+  }
+
   int _calculatePerformancePercentage(dynamic session) {
     final actualTime = _calculateActualFocusMinutes(session);
     if (actualTime <= 0 || session.durationMinutes <= 0) return 0;
     return ((actualTime / session.durationMinutes) * 100).round().toInt();
   }
-}
+} // Đóng class ở đây

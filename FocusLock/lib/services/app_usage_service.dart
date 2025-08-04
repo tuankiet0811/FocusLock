@@ -10,24 +10,26 @@ class AppUsageService {
   AppUsageService._internal();
 
   // Method channel for native communication
-  static const MethodChannel _channel = MethodChannel('app_blocking');
+  static const MethodChannel _channel = MethodChannel('focuslock/app_blocking');
 
   // Get default blocked apps
   Future<List<AppInfo>> getDefaultBlockedApps() async {
     return AppConstants.defaultBlockedApps
-        .map((app) => AppInfo(
-              packageName: app['packageName']!,
-              appName: app['appName']!,
-              isBlocked: true,
-              usageTimeMinutes: 0,
-            ))
+        .map(
+          (app) => AppInfo(
+            packageName: app['packageName']!,
+            appName: app['appName']!,
+            isBlocked: true,
+            usageTimeMinutes: 0,
+          ),
+        )
         .toList();
   }
 
   // Get all available apps (default + common apps)
   Future<List<AppInfo>> getAllApps() async {
     final defaultApps = await getDefaultBlockedApps();
-    
+
     // Add common apps that users might want to block
     final commonApps = [
       AppInfo(
@@ -84,54 +86,88 @@ class AppUsageService {
   }
 
   // Get apps by category from a given list
-  Future<List<AppInfo>> getAppsByCategory(String category, {List<AppInfo>? appsList}) async {
+  Future<List<AppInfo>> getAppsByCategory(
+    String category, {
+    List<AppInfo>? appsList,
+  }) async {
     final allApps = appsList ?? await getAllApps();
-    print('AppUsageService: getAppsByCategory - category: $category, total apps: ${allApps.length}');
-    
+    print(
+      'AppUsageService: getAppsByCategory - category: $category, total apps: ${allApps.length}',
+    );
+
     List<AppInfo> result;
     switch (category.toLowerCase()) {
       case 'social':
         // Ưu tiên category từ hệ thống, fallback về danh sách cứng
-        result = allApps.where((app) => 
-          app.category == 'social' || _isSocialMediaApp(app.packageName)
-        ).toList();
+        result = allApps
+            .where(
+              (app) =>
+                  app.category == 'social' ||
+                  _isSocialMediaApp(app.packageName),
+            )
+            .toList();
         break;
       case 'entertainment':
-        result = allApps.where((app) => 
-          app.category == 'entertainment' || _isEntertainmentApp(app.packageName)
-        ).toList();
+        result = allApps
+            .where(
+              (app) =>
+                  app.category == 'entertainment' ||
+                  _isEntertainmentApp(app.packageName),
+            )
+            .toList();
         break;
       case 'gaming':
-        result = allApps.where((app) => 
-          app.category == 'gaming' || _isGamingApp(app.packageName)
-        ).toList();
+        result = allApps
+            .where(
+              (app) =>
+                  app.category == 'gaming' || _isGamingApp(app.packageName),
+            )
+            .toList();
         break;
       case 'productivity':
-        result = allApps.where((app) => 
-          app.category == 'productivity' || _isProductivityApp(app.packageName)
-        ).toList();
+        result = allApps
+            .where(
+              (app) =>
+                  app.category == 'productivity' ||
+                  _isProductivityApp(app.packageName),
+            )
+            .toList();
         break;
       case 'news':
-        result = allApps.where((app) => 
-          app.category == 'news' || _isNewsApp(app.packageName)
-        ).toList();
+        result = allApps
+            .where(
+              (app) => app.category == 'news' || _isNewsApp(app.packageName),
+            )
+            .toList();
         break;
       case 'utilities':
-        result = allApps.where((app) => 
-          app.category == 'utilities' || _isUtilitiesApp(app.packageName)
-        ).toList();
+        result = allApps
+            .where(
+              (app) =>
+                  app.category == 'utilities' ||
+                  _isUtilitiesApp(app.packageName),
+            )
+            .toList();
         break;
       case 'communication':
-        result = allApps.where((app) => _isCommunicationApp(app.packageName)).toList();
+        result = allApps
+            .where((app) => _isCommunicationApp(app.packageName))
+            .toList();
         break;
       case 'shopping':
-        result = allApps.where((app) => _isShoppingApp(app.packageName)).toList();
+        result = allApps
+            .where((app) => _isShoppingApp(app.packageName))
+            .toList();
         break;
       case 'education':
-        result = allApps.where((app) => _isEducationApp(app.packageName)).toList();
+        result = allApps
+            .where((app) => _isEducationApp(app.packageName))
+            .toList();
         break;
       case 'finance':
-        result = allApps.where((app) => _isFinanceApp(app.packageName)).toList();
+        result = allApps
+            .where((app) => _isFinanceApp(app.packageName))
+            .toList();
         break;
       case 'health':
         result = allApps.where((app) => _isHealthApp(app.packageName)).toList();
@@ -140,15 +176,17 @@ class AppUsageService {
         result = allApps.where((app) => _isTravelApp(app.packageName)).toList();
         break;
       case 'utilities':
-        result = allApps.where((app) => _isUtilitiesApp(app.packageName)).toList();
+        result = allApps
+            .where((app) => _isUtilitiesApp(app.packageName))
+            .toList();
         break;
       default:
         result = allApps;
+    }
+
+    print('AppUsageService: $category category - ${result.length} apps');
+    return result;
   }
-  
-  print('AppUsageService: $category category - ${result.length} apps');
-  return result;
-}
 
   // Check if app is social media
   bool _isSocialMediaApp(String packageName) {
@@ -166,31 +204,31 @@ class AppUsageService {
       'com.reddit.frontpage',
       'com.pinterest',
       'com.linkedin.android',
-      
+
       // Additional Vietnamese and popular apps
-      'com.zing.zalo',                    // Zalo
-      'com.facebook.orca',                // Messenger
-      'com.facebook.lite',                // Facebook Lite
-      'com.instagram.lite',               // Instagram Lite
-      'com.zhiliaoapp.musically.go',      // TikTok Lite
-      'com.twitter.android.lite',         // Twitter Lite
-      'com.viber.voip',                   // Viber
-      'com.skype.raider',                 // Skype
-      'com.linecorp.LGTALK',             // Line
-      'com.tencent.mm',                   // WeChat
-      'com.kakao.talk',                   // KakaoTalk
-      'com.imo.android.imoim',           // imo
-      'com.bsb.hike',                     // Hike
-      'com.jio.jioplay.tv',              // JioChat
-      'com.path',                         // Path
-      'com.tumblr',                       // Tumblr
-      'com.vkontakte.android',           // VK
-      'com.badoo.mobile',                 // Badoo
-      'com.tinder',                       // Tinder
-      'com.bumble.app',                   // Bumble
-      'com.coffeemeetsbagel',            // Coffee Meets Bagel
-      'com.match.android',                // Match
-      'com.okcupid.okcupid',             // OkCupid
+      'com.zing.zalo', // Zalo
+      'com.facebook.orca', // Messenger
+      'com.facebook.lite', // Facebook Lite
+      'com.instagram.lite', // Instagram Lite
+      'com.zhiliaoapp.musically.go', // TikTok Lite
+      'com.twitter.android.lite', // Twitter Lite
+      'com.viber.voip', // Viber
+      'com.skype.raider', // Skype
+      'com.linecorp.LGTALK', // Line
+      'com.tencent.mm', // WeChat
+      'com.kakao.talk', // KakaoTalk
+      'com.imo.android.imoim', // imo
+      'com.bsb.hike', // Hike
+      'com.jio.jioplay.tv', // JioChat
+      'com.path', // Path
+      'com.tumblr', // Tumblr
+      'com.vkontakte.android', // VK
+      'com.badoo.mobile', // Badoo
+      'com.tinder', // Tinder
+      'com.bumble.app', // Bumble
+      'com.coffeemeetsbagel', // Coffee Meets Bagel
+      'com.match.android', // Match
+      'com.okcupid.okcupid', // OkCupid
     ];
     return socialMediaPackages.contains(packageName);
   }
@@ -205,41 +243,41 @@ class AppUsageService {
       'com.amazon.avod.thirdpartyclient',
       'com.hulu.plus',
       'com.disney.disneyplus',
-      
+
       // Additional entertainment apps
-      'com.google.android.youtube.tv',    // YouTube TV
+      'com.google.android.youtube.tv', // YouTube TV
       'com.google.android.youtube.tvkids', // YouTube Kids
       'com.google.android.apps.youtube.music', // YouTube Music
-      'com.apple.android.music',          // Apple Music
-      'com.amazon.mp3',                   // Amazon Music
-      'com.soundcloud.android',           // SoundCloud
-      'fm.last.android',                  // Last.fm
-      'com.pandora.android',              // Pandora
-      'com.aspiro.tidal',                 // Tidal
-      'com.deezer.android.app',          // Deezer
-      'com.vevo',                         // Vevo
-      'com.twitch.android.app',          // Twitch
-      'tv.twitch.android.viewer',        // Twitch (alternative)
-      'com.hbo.hbonow',                  // HBO Now
-      'com.hbo.hbomax',                  // HBO Max
-      'com.showtime.showtimeanytime',    // Showtime
-      'com.cbs.app',                     // CBS
-      'com.nbc.nbcuniversal',            // NBC
-      'com.fox.now',                     // FOX NOW
-      'com.crunchyroll.crunchyroid',     // Crunchyroll
-      'com.funimation.funimationdroid',  // Funimation
-      'com.plexapp.android',             // Plex
-      'com.kodi.kore',                   // Kodi
-      'com.mxtech.videoplayer.ad',       // MX Player
-      'com.mxtech.videoplayer.pro',      // MX Player Pro
-      'org.videolan.vlc',                // VLC
-      'com.bsplayer.bspandroid.free',    // BS Player
-      'com.devhd.feedly',                // Feedly
-      'flipboard.app',                   // Flipboard
-      'com.medium.reader',               // Medium
-      'com.audible.application',         // Audible
-      'com.storytel.app',                // Storytel
-      'com.blinkist.app',                // Blinkist
+      'com.apple.android.music', // Apple Music
+      'com.amazon.mp3', // Amazon Music
+      'com.soundcloud.android', // SoundCloud
+      'fm.last.android', // Last.fm
+      'com.pandora.android', // Pandora
+      'com.aspiro.tidal', // Tidal
+      'com.deezer.android.app', // Deezer
+      'com.vevo', // Vevo
+      'com.twitch.android.app', // Twitch
+      'tv.twitch.android.viewer', // Twitch (alternative)
+      'com.hbo.hbonow', // HBO Now
+      'com.hbo.hbomax', // HBO Max
+      'com.showtime.showtimeanytime', // Showtime
+      'com.cbs.app', // CBS
+      'com.nbc.nbcuniversal', // NBC
+      'com.fox.now', // FOX NOW
+      'com.crunchyroll.crunchyroid', // Crunchyroll
+      'com.funimation.funimationdroid', // Funimation
+      'com.plexapp.android', // Plex
+      'com.kodi.kore', // Kodi
+      'com.mxtech.videoplayer.ad', // MX Player
+      'com.mxtech.videoplayer.pro', // MX Player Pro
+      'org.videolan.vlc', // VLC
+      'com.bsplayer.bspandroid.free', // BS Player
+      'com.devhd.feedly', // Feedly
+      'flipboard.app', // Flipboard
+      'com.medium.reader', // Medium
+      'com.audible.application', // Audible
+      'com.storytel.app', // Storytel
+      'com.blinkist.app', // Blinkist
     ];
     return entertainmentPackages.contains(packageName);
   }
@@ -268,56 +306,56 @@ class AppUsageService {
       'com.vng.g6.b',
       'com.vng.g6.c',
       'com.vng.g6.d',
-      
+
       // Additional popular games
-      'com.pubg.imobile',                 // PUBG Mobile
-      'com.pubg.krmobile',               // PUBG Mobile KR
-      'com.tencent.tmgp.pubgm',          // PUBG Mobile (Tencent)
-      'com.dts.freefireth',              // Free Fire Thailand
-      'com.dts.freefiremax',             // Free Fire MAX
-      'com.garena.game.codm',            // Call of Duty Mobile
-      'com.miHoYo.GenshinImpact',        // Genshin Impact
-      'com.miHoYo.hkrpg.bilibili',       // Honkai Star Rail
-      'com.lilithgame.hgame.gp',         // AFK Arena
-      'com.igg.android.lordsmobile',     // Lords Mobile
-      'com.king.candycrushfriends',      // Candy Crush Friends
-      'com.king.farmheroessaga',         // Farm Heroes Saga
-      'com.playgendary.kickthebuddy',    // Kick the Buddy
-      'com.outfit7.mytalkingtom2',       // My Talking Tom 2
-      'com.outfit7.mytalkingtomfriends',  // My Talking Tom Friends
-      'com.rovio.angrybirdsdream',       // Angry Birds Dream Blast
-      'com.rovio.baba',                  // Angry Birds Reloaded
-      'com.ea.game.pvz2_row',            // Plants vs Zombies 2
-      'com.ea.game.simcitymobile_row',   // SimCity BuildIt
-      'com.ea.game.nfs14_row',           // Need for Speed
+      'com.pubg.imobile', // PUBG Mobile
+      'com.pubg.krmobile', // PUBG Mobile KR
+      'com.tencent.tmgp.pubgm', // PUBG Mobile (Tencent)
+      'com.dts.freefireth', // Free Fire Thailand
+      'com.dts.freefiremax', // Free Fire MAX
+      'com.garena.game.codm', // Call of Duty Mobile
+      'com.miHoYo.GenshinImpact', // Genshin Impact
+      'com.miHoYo.hkrpg.bilibili', // Honkai Star Rail
+      'com.lilithgame.hgame.gp', // AFK Arena
+      'com.igg.android.lordsmobile', // Lords Mobile
+      'com.king.candycrushfriends', // Candy Crush Friends
+      'com.king.farmheroessaga', // Farm Heroes Saga
+      'com.playgendary.kickthebuddy', // Kick the Buddy
+      'com.outfit7.mytalkingtom2', // My Talking Tom 2
+      'com.outfit7.mytalkingtomfriends', // My Talking Tom Friends
+      'com.rovio.angrybirdsdream', // Angry Birds Dream Blast
+      'com.rovio.baba', // Angry Birds Reloaded
+      'com.ea.game.pvz2_row', // Plants vs Zombies 2
+      'com.ea.game.simcitymobile_row', // SimCity BuildIt
+      'com.ea.game.nfs14_row', // Need for Speed
       'com.gameloft.android.ANMP.GloftA8HM', // Asphalt 8
       'com.gameloft.android.ANMP.GloftA9HM', // Asphalt 9
       'com.naturalmotion.customstreetracer3', // CSR Racing 3
-      'com.kiloo.subwaysurf',            // Subway Surfers
-      'com.imangi.templerun2',           // Temple Run 2
-      'com.halfbrick.fruitninja',        // Fruit Ninja
-      'com.zeptolab.ctr.ads',            // Cut the Rope
-      'com.zeptolab.ctr2.f2p.google',    // Cut the Rope 2
-      'com.miniclip.eightballpool',      // 8 Ball Pool
-      'com.miniclip.agar.io',            // Agar.io
-      'com.voodoo.paper.io',             // Paper.io
-      'io.voodoo.paper2',                // Paper.io 2
-      'com.chess.com',                   // Chess.com
-      'uk.co.aifactory.chessfree',       // Chess Free
-      'com.playrix.homescapes',          // Homescapes
-      'com.playrix.gardenscapes',        // Gardenscapes
-      'com.playrix.township',            // Township
-      'com.playrix.fishdom',             // Fishdom
-      'com.sgn.pandapop.gp',             // Panda Pop
-      'com.sgn.cookiejam.gp',            // Cookie Jam
-      'com.sgn.wordcookies.gp',          // Word Cookies
-      'com.zynga.words3',                // Words With Friends
+      'com.kiloo.subwaysurf', // Subway Surfers
+      'com.imangi.templerun2', // Temple Run 2
+      'com.halfbrick.fruitninja', // Fruit Ninja
+      'com.zeptolab.ctr.ads', // Cut the Rope
+      'com.zeptolab.ctr2.f2p.google', // Cut the Rope 2
+      'com.miniclip.eightballpool', // 8 Ball Pool
+      'com.miniclip.agar.io', // Agar.io
+      'com.voodoo.paper.io', // Paper.io
+      'io.voodoo.paper2', // Paper.io 2
+      'com.chess.com', // Chess.com
+      'uk.co.aifactory.chessfree', // Chess Free
+      'com.playrix.homescapes', // Homescapes
+      'com.playrix.gardenscapes', // Gardenscapes
+      'com.playrix.township', // Township
+      'com.playrix.fishdom', // Fishdom
+      'com.sgn.pandapop.gp', // Panda Pop
+      'com.sgn.cookiejam.gp', // Cookie Jam
+      'com.sgn.wordcookies.gp', // Word Cookies
+      'com.zynga.words3', // Words With Friends
       'com.zynga.farmville2_country_escape', // FarmVille 2
-      'com.zynga.csrracingfree',         // CSR Racing
-      'com.nexonm.legion',               // Legion of Heroes
-      'com.nexonm.hit.global',           // HIT
-      'com.netmarble.mherosgb',          // Marvel Future Fight
-      'com.netmarble.knightsgb',         // Seven Knights
+      'com.zynga.csrracingfree', // CSR Racing
+      'com.nexonm.legion', // Legion of Heroes
+      'com.nexonm.hit.global', // HIT
+      'com.netmarble.mherosgb', // Marvel Future Fight
+      'com.netmarble.knightsgb', // Seven Knights
       'com.com2us.smon.normal.freefull.google.kr.android.common', // Summoners War
       'com.gamevil.dragonflight.android.google.global.normal', // Dragon Blaze
     ];
@@ -614,80 +652,93 @@ class AppUsageService {
   }
 
   // Get app usage statistics for a specific period
-  // Thay thế method getAppUsageForPeriod
   Future<Map<String, Duration>> getAppUsageForPeriod(String period) async {
     try {
-    // Gọi native method để lấy usage stats thực tế
-    final result = await _channel.invokeMethod('getAppUsageStats', {
-      'period': period,
-    });
-    
-    if (result != null && result is Map) {
-      final Map<String, Duration> usageData = {};
-      result.forEach((key, value) {
-        if (value is int) {
-          usageData[key] = Duration(milliseconds: value);
-        }
+      // Gọi native method để lấy usage stats thực tế
+      final result = await _channel.invokeMethod('getAppUsageStats', {
+        'period': period,
       });
-      return usageData;
+
+      if (result != null && result is Map) {
+        final Map<String, Duration> usageData = {};
+        result.forEach((key, value) {
+          if (value is int && value > 0) {
+            // Chỉ lấy apps có usage > 0
+            usageData[key] = Duration(milliseconds: value);
+          }
+        });
+
+        // Nếu có dữ liệu thật, return ngay
+        if (usageData.isNotEmpty) {
+          print(
+            'AppUsageService: Got real usage data for $period: ${usageData.length} apps',
+          );
+          return usageData;
+        }
+      }
+    } catch (e) {
+      print('Failed to get real usage stats: $e');
+      // Throw error để UI có thể handle
+      throw Exception('Cần quyền "Usage Access" để lấy dữ liệu thật');
     }
-  } catch (e) {
-    print('Failed to get real usage stats: $e');
+
+    // Fallback to mock data với warning
+    print('AppUsageService: Using mock data for $period');
+    return _getMockUsageData(period);
   }
-  
-  // Fallback to mock data if native call fails
-  return _getMockUsageData(period);
-}
 
-// Tách mock data thành method riêng
-Map<String, Duration> _getMockUsageData(String period) {
-  final mockUsageData = {
-    'today': {
-      'Facebook': const Duration(minutes: 45),
-      'Instagram': const Duration(minutes: 30),
-      'YouTube': const Duration(minutes: 60),
-      'TikTok': const Duration(minutes: 25),
-      'WhatsApp': const Duration(minutes: 20),
-      'Gmail': const Duration(minutes: 15),
-    },
-    'week': {
-      'Facebook': const Duration(hours: 3, minutes: 30),
-      'Instagram': const Duration(hours: 2, minutes: 15),
-      'YouTube': const Duration(hours: 4, minutes: 45),
-      'TikTok': const Duration(hours: 1, minutes: 50),
-      'WhatsApp': const Duration(hours: 1, minutes: 30),
-      'Gmail': const Duration(minutes: 45),
-      'Spotify': const Duration(hours: 2, minutes: 20),
-      'Netflix': const Duration(hours: 1, minutes: 15),
-    },
-    'month': {
-      'Facebook': const Duration(hours: 12, minutes: 30),
-      'Instagram': const Duration(hours: 8, minutes: 45),
-      'YouTube': const Duration(hours: 15, minutes: 20),
-      'TikTok': const Duration(hours: 6, minutes: 15),
-      'WhatsApp': const Duration(hours: 5, minutes: 30),
-      'Gmail': const Duration(hours: 2, minutes: 15),
-      'Spotify': const Duration(hours: 8, minutes: 45),
-      'Netflix': const Duration(hours: 4, minutes: 30),
-      'Discord': const Duration(hours: 3, minutes: 20),
-      'Reddit': const Duration(hours: 2, minutes: 15),
-    },
-  };
-  return Map<String, Duration>.from(mockUsageData[period] ?? {});
-}
+  // Tách mock data thành method riêng
+  Map<String, Duration> _getMockUsageData(String period) {
+    final mockUsageData = {
+      'today': {
+        'Facebook': const Duration(minutes: 45),
+        'Instagram': const Duration(minutes: 30),
+        'YouTube': const Duration(minutes: 60),
+        'TikTok': const Duration(minutes: 25),
+        'WhatsApp': const Duration(minutes: 20),
+        'Gmail': const Duration(minutes: 15),
+      },
+      'week': {
+        'Facebook': const Duration(hours: 3, minutes: 30),
+        'Instagram': const Duration(hours: 2, minutes: 15),
+        'YouTube': const Duration(hours: 4, minutes: 45),
+        'TikTok': const Duration(hours: 1, minutes: 50),
+        'WhatsApp': const Duration(hours: 1, minutes: 30),
+        'Gmail': const Duration(minutes: 45),
+        'Spotify': const Duration(hours: 2, minutes: 20),
+        'Netflix': const Duration(hours: 1, minutes: 15),
+      },
+      'month': {
+        'Facebook': const Duration(hours: 12, minutes: 30),
+        'Instagram': const Duration(hours: 8, minutes: 45),
+        'YouTube': const Duration(hours: 15, minutes: 20),
+        'TikTok': const Duration(hours: 6, minutes: 15),
+        'WhatsApp': const Duration(hours: 5, minutes: 30),
+        'Gmail': const Duration(hours: 2, minutes: 15),
+        'Spotify': const Duration(hours: 8, minutes: 45),
+        'Netflix': const Duration(hours: 4, minutes: 30),
+        'Discord': const Duration(hours: 3, minutes: 20),
+        'Reddit': const Duration(hours: 2, minutes: 15),
+      },
+    };
+    return Map<String, Duration>.from(mockUsageData[period] ?? {});
+  }
 
-// Thêm method để lưu usage data thực tế
-Future<void> trackAppUsage(String packageName, int durationMs) async {
-  final prefs = await SharedPreferences.getInstance();
-  final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-  final key = 'real_usage_${today}_$packageName';
-  
-  final existingUsage = prefs.getInt(key) ?? 0;
-  await prefs.setInt(key, existingUsage + durationMs);
-}
+  // Thêm method để lưu usage data thực tế
+  Future<void> trackAppUsage(String packageName, int durationMs) async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final key = 'real_usage_${today}_$packageName';
+
+    final existingUsage = prefs.getInt(key) ?? 0;
+    await prefs.setInt(key, existingUsage + durationMs);
+  }
 
   // Get app usage by category for a period
-  Future<Map<String, Duration>> getAppUsageByCategory(String period, String category) async {
+  Future<Map<String, Duration>> getAppUsageByCategory(
+    String period,
+    String category,
+  ) async {
     final allUsage = await getAppUsageForPeriod(period);
     final Map<String, Duration> categoryUsage = {};
 
@@ -753,11 +804,14 @@ Future<void> trackAppUsage(String packageName, int durationMs) async {
   }
 
   // Get most used apps for a period
-  Future<List<MapEntry<String, Duration>>> getMostUsedApps(String period, {int limit = 5}) async {
+  Future<List<MapEntry<String, Duration>>> getMostUsedApps(
+    String period, {
+    int limit = 5,
+  }) async {
     final usage = await getAppUsageForPeriod(period);
     final sortedEntries = usage.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    
+
     return sortedEntries.take(limit).toList();
   }
 
@@ -766,7 +820,7 @@ Future<void> trackAppUsage(String packageName, int durationMs) async {
     final prefs = await SharedPreferences.getInstance();
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
     final key = 'app_usage_${today}_$packageName';
-    
+
     // Convert duration to minutes for storage
     final minutes = duration.inMinutes;
     await prefs.setInt(key, minutes);
@@ -777,7 +831,7 @@ Future<void> trackAppUsage(String packageName, int durationMs) async {
     final prefs = await SharedPreferences.getInstance();
     final key = 'app_usage_${date}_$packageName';
     final minutes = prefs.getInt(key);
-    
+
     if (minutes != null) {
       return Duration(minutes: minutes);
     }
