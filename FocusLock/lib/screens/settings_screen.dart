@@ -240,51 +240,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
 
-          // const SizedBox(height: 24),
-
-          // // About Section
-          // _buildSection(
-          //   title: 'Thông tin',
-          //   icon: Icons.info,
-          //   children: [
-          //     ListTile(
-          //       leading: const Icon(Icons.description),
-          //       title: const Text('Điều khoản sử dụng'),
-          //       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-          //       onTap: () {
-          //         // TODO: Navigate to terms of service
-          //       },
-          //     ),
-          //     ListTile(
-          //       leading: const Icon(Icons.privacy_tip),
-          //       title: const Text('Chính sách bảo mật'),
-          //       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-          //       onTap: () {
-          //         // TODO: Navigate to privacy policy
-          //       },
-          //     ),
-          //     ListTile(
-          //       leading: const Icon(Icons.help),
-          //       title: const Text('Trợ giúp'),
-          //       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-          //       onTap: () {
-          //         // TODO: Navigate to help
-          //       },
-          //     ),
-          //     ListTile(
-          //       leading: const Icon(Icons.star),
-          //       title: const Text('Đánh giá ứng dụng'),
-          //       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-          //       onTap: () => _rateApp(),
-          //     ),
-          //     ListTile(
-          //       leading: const Icon(Icons.share),
-          //       title: const Text('Chia sẻ ứng dụng'),
-          //       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-          //       onTap: () => _shareApp(),
-          //     ),
-          //   ],
-          // ),
+          
           const SizedBox(height: 32),
 
           // Version Info

@@ -83,7 +83,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
               _buildAppUsageStatistics(),
               const SizedBox(height: 24),
               // Productivity Score
-              _buildProductivityScore(focusService),
+              //_buildProductivityScore(focusService),
             ],
           ),
         );
@@ -388,62 +388,62 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
   }
 
  
-  Widget _buildProductivityScore(FocusService focusService) {
-    final sessions = _getSessionsForPeriod(focusService);
-    final productivityScore = _calculateProductivityScore(sessions);
+  // Widget _buildProductivityScore(FocusService focusService) {
+  //   final sessions = _getSessionsForPeriod(focusService);
+  //   final productivityScore = _calculateProductivityScore(sessions);
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(AppConstants.primaryColor),
-            const Color(AppConstants.primaryColor).withOpacity(0.8),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(AppConstants.primaryColor).withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          const Text(
-            'Điểm hiệu suất',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '$productivityScore%',
-            style: const TextStyle(
-              fontSize: 48,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _getProductivityMessage(productivityScore),
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.white70,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
+  //   return Container(
+  //     padding: const EdgeInsets.all(20),
+  //     decoration: BoxDecoration(
+  //       gradient: LinearGradient(
+  //         colors: [
+  //           const Color(AppConstants.primaryColor),
+  //           const Color(AppConstants.primaryColor).withOpacity(0.8),
+  //         ],
+  //         begin: Alignment.topLeft,
+  //         end: Alignment.bottomRight,
+  //       ),
+  //       borderRadius: BorderRadius.circular(16),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: const Color(AppConstants.primaryColor).withOpacity(0.3),
+  //           blurRadius: 10,
+  //           offset: const Offset(0, 4),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Column(
+  //       children: [
+  //         const Text(
+  //           'Điểm hiệu suất',
+  //           style: TextStyle(
+  //             fontSize: 18,
+  //             fontWeight: FontWeight.bold,
+  //             color: Colors.white,
+  //           ),
+  //         ),
+  //         const SizedBox(height: 16),
+  //         Text(
+  //           '$productivityScore%',
+  //           style: const TextStyle(
+  //             fontSize: 48,
+  //             fontWeight: FontWeight.bold,
+  //             color: Colors.white,
+  //           ),
+  //         ),
+  //         const SizedBox(height: 8),
+  //         Text(
+  //           _getProductivityMessage(productivityScore),
+  //           style: const TextStyle(
+  //             fontSize: 14,
+  //             color: Colors.white70,
+  //           ),
+  //           textAlign: TextAlign.center,
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
 
 
