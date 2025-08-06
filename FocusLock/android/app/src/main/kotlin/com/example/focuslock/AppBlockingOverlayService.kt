@@ -27,11 +27,13 @@ class AppBlockingOverlayService : Service() {
     private val checkRunnable = object : Runnable {
         override fun run() {
             checkCurrentApp()
-            handler.postDelayed(this, 200) // Check every 200ms for faster response
+            handler.postDelayed(this, 50) // Giảm từ 200ms xuống 50ms để phản hồi nhanh hơn
         }
     }
     
     private var isOverlayShown = false
+    private var isTemporarilyDisabled = false
+    private val tempDisableHandler = Handler(Looper.getMainLooper())
     
     companion object {
         private var blockedApps = mutableSetOf<String>()
@@ -48,14 +50,14 @@ class AppBlockingOverlayService : Service() {
             println("AppBlockingOverlayService: Set active: $active")
         }
     }
-    
+
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
     }
-    
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (isActive) {
             startOverlay()
@@ -64,11 +66,10 @@ class AppBlockingOverlayService : Service() {
     }
     
     private fun startOverlay() {
-        // Không add overlay ngay khi start service nữa
         startAppChecking()
         println("AppBlockingOverlayService: App checking started")
     }
-    
+
     private fun startAppChecking() {
         handler.post(checkRunnable)
     }
@@ -86,18 +87,27 @@ class AppBlockingOverlayService : Service() {
         "com.sonyericsson.home",
         "com.lge.launcher2"
     )
-    
+
     private fun checkCurrentApp() {
         if (!isActive) {
             removeOverlayIfNeeded()
             return
         }
+        
+        // Kiểm tra ngay lập tức khi có thay đổi
+        if (isTemporarilyDisabled) {
+            removeOverlayIfNeeded()
+            return
+        }
+        
         try {
             val currentAppUsage = getCurrentAppFromUsageStats()
             val currentAppTasks = getCurrentAppFromTasks()
             println("AppBlockingOverlayService: UsageStats foreground: $currentAppUsage, Tasks foreground: $currentAppTasks, Blocked: ${blockedApps.joinToString()}")
             val currentApp = currentAppUsage ?: currentAppTasks
+            
             if (currentApp != null && blockedApps.contains(currentApp) && !launcherPackages.contains(currentApp)) {
+                // Hiển thị overlay ngay lập tức
                 showOverlayIfNeeded()
             } else {
                 removeOverlayIfNeeded()
@@ -131,7 +141,6 @@ class AppBlockingOverlayService : Service() {
             
             return mostRecentApp
         } catch (e: Exception) {
-            println("AppBlockingOverlayService: Error getting app from UsageStats: ${e.message}")
             return null
         }
     }
@@ -142,37 +151,48 @@ class AppBlockingOverlayService : Service() {
             if (tasks.isNotEmpty()) {
                 return tasks[0].topActivity?.packageName
             }
-        } catch (e: SecurityException) {
-            println("AppBlockingOverlayService: Permission denied for getRunningTasks: ${e.message}")
         } catch (e: Exception) {
-            println("AppBlockingOverlayService: Error getting app from Tasks: ${e.message}")
+            // Fallback or handle exception
         }
         return null
     }
     
     private fun handleBlockedApp(packageName: String) {
-        println("AppBlockingOverlayService: Handling blocked app: $packageName")
-        // XÓA đoạn code đẩy về home, chỉ giữ lại overlay và toast nếu có
-        // (Không còn startActivity(homeIntent))
-        // Show blocking dialog
         showOverlayIfNeeded()
-        // Show toast
-        Toast.makeText(
-            this,
-            "Ứng dụng này đã bị chặn trong thời gian tập trung",
-            Toast.LENGTH_SHORT
-        ).show()
+        
+        // Show toast message
+        Toast.makeText(this, "App $packageName đã bị chặn bởi FocusLock", Toast.LENGTH_SHORT).show()
     }
     
     private fun showOverlayIfNeeded() {
-        if (isOverlayShown) return
+        if (isOverlayShown || isTemporarilyDisabled) return
         try {
             overlayView = LayoutInflater.from(this).inflate(R.layout.blocking_overlay, null)
+            
+            // Thêm xử lý nút Quay lại
+            val btnGoBack = overlayView.findViewById<Button>(R.id.btnGoBack)
+            btnGoBack?.setOnClickListener {
+                // Ẩn overlay
+                removeOverlayIfNeeded()
+                
+                // Tạm dừng overlay trong 3 giây để user có thể chuyển app
+                isTemporarilyDisabled = true
+                tempDisableHandler.postDelayed({
+                    isTemporarilyDisabled = false
+                }, 3000) // 3 giây
+                
+                // Đưa người dùng về màn hình chính
+                val homeIntent = Intent(Intent.ACTION_MAIN)
+                homeIntent.addCategory(Intent.CATEGORY_HOME)
+                homeIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                startActivity(homeIntent)
+            }
+            
             val params = WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                0, // Không flag nào, chặn triệt để mọi thao tác
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                 PixelFormat.TRANSLUCENT
             )
             params.gravity = Gravity.TOP or Gravity.START
@@ -185,23 +205,26 @@ class AppBlockingOverlayService : Service() {
     }
 
     private fun removeOverlayIfNeeded() {
-        if (!isOverlayShown) return
-        try {
-            if (::overlayView.isInitialized) {
+        if (isOverlayShown) {
+            try {
                 windowManager.removeView(overlayView)
+                isOverlayShown = false
+                println("AppBlockingOverlayService: Overlay removed")
+            } catch (e: Exception) {
+                println("AppBlockingOverlayService: Failed to remove overlay: ${e.message}")
             }
-            isOverlayShown = false
-            println("AppBlockingOverlayService: Overlay removed")
-        } catch (e: Exception) {
-            println("AppBlockingOverlayService: Failed to remove overlay: ${e.message}")
         }
     }
-    
+
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(checkRunnable)
+        tempDisableHandler.removeCallbacksAndMessages(null)
         removeOverlayIfNeeded()
+        println("AppBlockingOverlayService: Service destroyed")
     }
-    
-    override fun onBind(intent: Intent?): IBinder? = null
-} 
+
+    override fun onBind(intent: Intent?): IBinder? {
+        return null
+    }
+}
