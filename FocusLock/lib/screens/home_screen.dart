@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:async'; // Thêm import này cho Timer
 import '../services/focus_service.dart';
 import '../services/auth_service.dart';
 import '../models/focus_session.dart';
@@ -36,12 +37,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
   late Animation<Offset> _slideAnimation;
   int _currentIndex = 0;
   bool _isDialogShowing = false;
-  String? _currentPermissionDialog; // 'usage', 'overlay', 'accessibility'
-
+  String? _currentPermissionDialog;
+  
   // Thêm các biến để lưu trạng thái đã hỏi quyền
   bool _hasAskedUsagePermission = false;
   bool _hasAskedOverlayPermission = false;
   bool _hasAskedAccessibilityPermission = false;
+  
+  // Thêm Timer để có thể cancel
+  Timer? _firstTimeDialogTimer;
 
   @override
   void initState() {
@@ -277,9 +281,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     final prefs = await SharedPreferences.getInstance();
     final shown = prefs.getBool('shown_first_time_dialog') ?? false;
     if (!shown) {
-      Future.delayed(const Duration(seconds: 2), () => _showFirstTimeDialog());
+      _firstTimeDialogTimer = Timer(const Duration(seconds: 2), () {
+        if (mounted) {
+          _showFirstTimeDialog();
+        }
+      });
       await prefs.setBool('shown_first_time_dialog', true);
     }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _animationController.dispose();
+    _firstTimeDialogTimer?.cancel();
+    super.dispose();
   }
 
   void _showPermissionDialog() {

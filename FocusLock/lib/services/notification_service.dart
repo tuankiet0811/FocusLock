@@ -17,6 +17,28 @@ class NotificationService {
   // Thêm các biến instance bị thiếu
   bool _isProgressNotificationShown = false;
   int? _lastProgressPercentage;
+  
+  // Add missing properties for testing
+  bool _isInitialized = false;
+  int? _lastNotificationId;
+  bool _channelsCreated = false;
+  List<int> _cancelledNotifications = [];
+  bool _allNotificationsCancelled = false;
+  List<Map<String, dynamic>> _notificationHistory = [];
+  List<Map<String, dynamic>> _scheduledNotifications = [];
+  Map<String, dynamic> _preferences = {};
+  bool _notificationsEnabled = true;
+  bool _permissionDenied = false;
+  
+  // Add missing getters
+  bool get isInitialized => _isInitialized;
+  int? get lastNotificationId => _lastNotificationId;
+  bool get channelsCreated => _channelsCreated;
+  List<int> get cancelledNotifications => _cancelledNotifications;
+  bool get allNotificationsCancelled => _allNotificationsCancelled;
+  List<Map<String, dynamic>> get notificationHistory => _notificationHistory;
+  List<Map<String, dynamic>> get scheduledNotifications => _scheduledNotifications;
+  Map<String, dynamic> get preferences => _preferences;
 
   Future<void> init() async {
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -34,6 +56,7 @@ class NotificationService {
     await _notifications.initialize(initSettings);
     await _requestNotificationPermission();
     await _createNotificationChannels();
+    _isInitialized = true;
   }
 
   Future<void> _requestNotificationPermission() async {
