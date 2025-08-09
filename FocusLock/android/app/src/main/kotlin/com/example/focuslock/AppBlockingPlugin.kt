@@ -270,65 +270,60 @@ class AppBlockingPlugin : FlutterPlugin, MethodCallHandler {
   private fun getInstalledApps(): List<Map<String, Any>> {
     println("AppBlockingPlugin: Đã gọi getInstalledApps")
     val apps = mutableListOf<Map<String, Any>>()
-    val popularSystemApps = setOf(
-        "com.google.android.youtube",
-        "com.facebook.katana",
-        "com.facebook.orca",
-        "com.instagram.android",
-        "com.whatsapp",
-        "com.zing.zalo",
-        "com.google.android.apps.messaging"
-        // Thêm các package phổ biến khác nếu muốn
-    )
+    
     try {
-      val installedApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-      for (appInfo in installedApps) {
-        // Lấy app user hoặc app hệ thống phổ biến, loại trừ app chính FocusLock
-        if (
-          (appInfo.packageName != context.packageName) &&
-          (
-            (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 ||
-            popularSystemApps.contains(appInfo.packageName)
-          )
-        ) {
-          val appName = try {
-            packageManager.getApplicationLabel(appInfo).toString()
-          } catch (e: Exception) {
-            appInfo.packageName
-          }
-          
-          // Lấy category từ hệ thống (Android 8.0+)
-          val category = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            when (appInfo.category) {
-              ApplicationInfo.CATEGORY_GAME -> "gaming"
-              ApplicationInfo.CATEGORY_SOCIAL -> "social"
-              ApplicationInfo.CATEGORY_AUDIO -> "entertainment"
-              ApplicationInfo.CATEGORY_VIDEO -> "entertainment"
-              ApplicationInfo.CATEGORY_PRODUCTIVITY -> "productivity"
-              ApplicationInfo.CATEGORY_NEWS -> "news"
-              ApplicationInfo.CATEGORY_MAPS -> "utilities"
-              ApplicationInfo.CATEGORY_IMAGE -> "utilities"
-              else -> "other"
+        // Lấy chỉ các ứng dụng có LAUNCHER activity (apps thực sự)
+        val mainIntent = Intent(Intent.ACTION_MAIN, null)
+        mainIntent.addCategory(Intent.CATEGORY_LAUNCHER)
+        val launcherApps = packageManager.queryIntentActivities(mainIntent, 0)
+        
+        for (resolveInfo in launcherApps) {
+            val appInfo = resolveInfo.activityInfo.applicationInfo
+            
+            // CHỈ loại trừ app FocusLock chính nó
+            if (appInfo.packageName != context.packageName) {
+                val appName = try {
+                    packageManager.getApplicationLabel(appInfo).toString()
+                } catch (e: Exception) {
+                    appInfo.packageName
+                }
+                
+                // Phân biệt app hệ thống vs app user
+                val isSystemApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                
+                // Lấy category từ hệ thống (Android 8.0+)
+                val category = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    when (appInfo.category) {
+                        ApplicationInfo.CATEGORY_GAME -> "gaming"
+                        ApplicationInfo.CATEGORY_SOCIAL -> "social"
+                        ApplicationInfo.CATEGORY_AUDIO -> "entertainment"
+                        ApplicationInfo.CATEGORY_VIDEO -> "entertainment"
+                        ApplicationInfo.CATEGORY_PRODUCTIVITY -> "productivity"
+                        ApplicationInfo.CATEGORY_NEWS -> "news"
+                        ApplicationInfo.CATEGORY_MAPS -> "utilities"
+                        ApplicationInfo.CATEGORY_IMAGE -> "utilities"
+                        else -> if (isSystemApp) "system" else "other"
+                    }
+                } else {
+                    if (isSystemApp) "system" else "other"
+                }
+                
+                apps.add(mapOf(
+                    "packageName" to appInfo.packageName,
+                    "appName" to appName,
+                    "isBlocked" to blockedApps.contains(appInfo.packageName),
+                    "category" to category,
+                    "isSystemApp" to isSystemApp
+                ))
             }
-          } else {
-            "other" // Fallback cho Android cũ hơn
-          }
-          
-          apps.add(mapOf(
-            "packageName" to appInfo.packageName,
-            "appName" to appName,
-            "isBlocked" to blockedApps.contains(appInfo.packageName),
-            "category" to category
-          ))
         }
-      }
-      println("AppBlockingPlugin: Số lượng app lấy được (user + system phổ biến): ${apps.size}")
+        println("AppBlockingPlugin: Số lượng app có launcher: ${apps.size}")
     } catch (e: Exception) {
-      println("AppBlockingPlugin: Lỗi khi lấy danh sách app: ${e.message}")
-      e.printStackTrace()
+        println("AppBlockingPlugin: Lỗi khi lấy danh sách app: ${e.message}")
+        e.printStackTrace()
     }
     return apps
-  }
+}
 
   private fun debugCurrentApp(): Map<String, Any?> {
     val currentApp = getCurrentApp()
